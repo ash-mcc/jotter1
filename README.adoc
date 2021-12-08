@@ -1,0 +1,15 @@
+= Ash's jotter #&#8203;1
+
+Walk-throughs, notes and other jottings on various topics.
+
+This repository uses a https://en.wikipedia.org/wiki/Literate_programming[literate programming] 
+tool called https://github.com/nextjournal/clerk[Clerk],
+to weave narratives with (computer program driven) data, code and graph visualisations.
+
+== Building 'static' web pages from the source 'notebooks'
+
+[source]
+----
+clj -X:web-pages
+----
+
