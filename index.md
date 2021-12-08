@@ -23,7 +23,7 @@ Walk-throughs, notes and other jottings on various topics.
           [:div.font-bold.block.group-hover:text-indigo-600 title]
           [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal description]]])
       [{:title "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Datasets from statistics.gov.scot which might be useful to the_od_bods project"
-        :preview "../img/preview-scotgov-datasets.png"
+        :preview "preview-scotgov-datasets.png"
         :path "notebooks/scotgov_datasets.html"
         :description "We generate a CSV file that describes the 311 datasets (15 organisations) that are available via Scot gov’s SPARQL endpoint. "}
        {:title "🏷️ The 'label-first' querying of WikiData for Scottish government agencies"
