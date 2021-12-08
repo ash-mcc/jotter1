@@ -2,6 +2,8 @@
 
 Walk-throughs, notes and other jottings on various topics.
 
+👁️ https://ash-mcc.github.io/jotter1/[View] the generated web pages.
+
 This repository uses a https://en.wikipedia.org/wiki/Literate_programming[literate programming] 
 tool called https://github.com/nextjournal/clerk[Clerk]
 to weave narratives with (computer program driven) data, code and graph visualisations.
