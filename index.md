@@ -26,7 +26,7 @@ Walk-throughs, notes and other jottings on various topics.
         :preview "preview-scotgov-datasets.png"
         :path "notebooks/scotgov_datasets.html"
         :description "We generate a CSV file that describes the 311 datasets (15 organisations) that are available via Scot gov’s SPARQL endpoint. "}
-       {:title "🏷️ The 'label-first' querying of WikiData for Scottish government agencies"
+       {:title "The label-first 🏷️ querying of WikiData for Scottish government agencies"
         :preview "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Mundaneum_Tiräng_Karteikaarten.jpg/440px-Mundaneum_Tiräng_Karteikaarten.jpg"
-        :path "notebooks/scotgov_label_first_wikidata.html"
-        :description "We construct a 'label-first' query that is equivalent to CTC24's more traditional Wikidata SPARQL query for Scottish government agencies"}])))
+        :path "notebooks/wikidata_label_first_querying_for_scotgov_agencies.html"
+        :description "We construct a label-first query that is equivalent to CTC24's more typical QID-first Wikidata SPARQL query, for Scottish government agencies"}])))

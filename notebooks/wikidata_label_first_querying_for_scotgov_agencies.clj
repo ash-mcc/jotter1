@@ -1,19 +1,30 @@
-;; # The _label-first_ querying of WikiData for Scottish government agencies
+;; # The _label-first_ 🏷️ querying of WikiData for Scottish government agencies
 
-;; One of the projects of [CTC24](https://codethecity.org/what-we-do/hack-weekends/ctc24-open-in-practice/) 
-;; modelled the whole of government in Scotland on Wikidata,
+;; ## Intro 
+
+;; One of the projects at the [CTC24 hackathon](https://codethecity.org/what-we-do/hack-weekends/ctc24-open-in-practice/)
+;; worked on building a Wikidata representation of government in Scotland,
 ;; culminating in [this SPARQL query](https://w.wiki/4TpN) to show the results.
 
-;; In this namespace we construct a _label-first_ query that is equivalent to CTC24's query.
-;; To do so, we use [Mundaneum](https://github.com/jackrusher/mundaneum) - Jack Rusher's query abstraction over Wikidata.
+;; That query contains the [Q identifiers](https://www.wikidata.org/wiki/Q43649390) 
+;; of the classes of the items that are to be found.
+;; It's a well constructed and typical _QID-first_ Wikidata SPARQL query.
+;; QIDs are used because they are unambiguous (and succinct) but, they are not human-oriented.
+;; Many SPARQL tools remedy this by displaying human-oriented labels for QIDs in _tooltips_.
+;; An alternative approach is, from the outset, to construct an equivalent but more human-oriented, 
+;; _label-first_ query...
+
+;; To help us, we use [Mundaneum](https://github.com/jackrusher/mundaneum) - Jack Rusher's query abstraction over Wikidata.
+
+;; ## Querying
 
 ;; Load the helper libraries.
-(ns scotgov-label-first-wikidata
-  (:require [mundaneum.query :as wd]
+(ns wikidata-label-first-querying-for-scotgov-agencies
+  (:require [clojure.string :as str]
+            [mundaneum.query :as wd]
             [backtick :as b]
             [tablecloth.api :as tc]
-            [nextjournal.clerk :as clerk]
-            [clojure.string :as str]))
+            [nextjournal.clerk :as clerk]))
 
 ;; Define the queries in a _label-first_ way.
 (def queries 
@@ -74,6 +85,7 @@
    '[[?item (wdt :part-of) (entity "Courts of Scotland")]]})
 
 ;; Execute those queries and collect their results into a column-oriented dataset.
+^{::clerk/visibility :fold}
 (def DS0 (-> (for [[id where-clause] queries]
               (->
                (b/template
@@ -86,26 +98,37 @@
                (tc/add-column :from-query id)))
             (->> (apply tc/concat))))
 
-;; Expect 244 rows.
+
+;; ## Inspecting, de-duping & displaying the resulting dataset
+
+;; Inspect the dataset - expect 244 rows.
 (tc/shape DS0)
 
-;; De-dup.
+;; De-dup the dataset.
 (def DS (-> DS0
              (tc/fold-by [:item :itemLabel])))
 
-;; Display those arising from > 1 query.
-(-> DS
-    (tc/select-rows #(-> % :from-query count (> 1))))
+;; Define a `display-table` helper fn.
+^{::clerk/visibility :fold}
+(defn display-table [ds]
+  (clerk/table {"name" (-> ds :itemLabel vec)
+                "QID" (-> ds :item vec)
+                "from query" (->> ds
+                                  :from-query
+                                  (map (fn [coll] (str/join " , " coll)))
+                                  vec)}))
 
-;; Expect 238 de-duped.
+;; Display items arising from > 1 query.
+(-> DS 
+    (tc/select-rows #(-> % :from-query count (> 1)))
+    (tc/order-by :itemLabel)
+    display-table)
+
+;; Inspect the de-duped dataset - expect 238 rows.
 (tc/shape DS)
 
-;; Display the final result as a table.
-(let [ds (tc/order-by DS :itemLabel)]
-  (clerk/table {"name" (-> ds :itemLabel vec) 
-                "QID" (-> ds :item vec) 
-                "from query" (->> ds 
-                                  :from-query 
-                                  (map (fn [coll] (str/join " , " coll))) 
-                                  vec)}))
+;; Display the de-duped, final dataset.
+(-> DS
+    (tc/order-by :itemLabel)
+    display-table)
 

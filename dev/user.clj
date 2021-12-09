@@ -4,23 +4,24 @@
             [nextjournal.clerk.viewer :as v]))
 
 (comment
-
+  
   ;; start without file watcher, open browser when started
   (clerk/serve! {:browse? true})
 
   ;; start with file watcher for these sub-directory paths
-(clerk/serve! {:watch-paths ["notebooks" "src" "index.md"]})
+  (clerk/serve! {:watch-paths ["notebooks" "src" "index.md"]})
 
   ;; start with file watcher and a `show-filter-fn` function to watch
   ;; a subset of notebooks
-(clerk/serve! {:watch-paths ["notebooks" "src"] :show-filter-fn #(clojure.string/starts-with? % "notebooks")})
+  (clerk/serve! {:watch-paths    ["notebooks" "src"]
+                 :show-filter-fn #(clojure.string/starts-with? % "notebooks")})
 
   ;; open clerk
   (browse/browse-url "http://localhost:7777")
 
   ;; or call `clerk/show!` explicitly
   (clerk/show! "notebooks/scotgov_datasets.clj")
-  (clerk/show! "notebooks/scotgov_label_first_wikidata.clj")
+  (clerk/show! "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj")
 
   (clerk/show! "index.md")
 

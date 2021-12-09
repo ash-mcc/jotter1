@@ -23,4 +23,4 @@
             :exec-args     {:bundle? false
                             :paths   ["index.md"
                                       "notebooks/scotgov_datasets.clj"
-                                      "notebooks/scotgov_label_first_wikidata.clj"]}}}}
+                                      "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"]}}}}
