@@ -1,16 +1,19 @@
 {:paths   ["dev"]
- :deps    {;; current stable
-           ;; io.github.nextjournal/clerk       {:mvn/version "0.2.209"} 
-           ;; Martin's latest cut which supports 'visibility' and other improvements
-           io.github.nextjournal/clerk       {:git/sha "64ce88eb80609ab915b61fbabd46f7d9c8ac1375"} 
+ :deps    {;; Martin's proposed stable
+           ;;io.github.nextjournal/clerk       {:mvn/version "0.4.305"}
+           ;; one possibilt supprting the interactivity notebook
+           io.github.nextjournal/clerk       {:git/sha "e8cf52f4ce774e7eacf888302c5b69d7d8a0054f"}
            
            com.github.seancorfield/next.jdbc {:mvn/version "1.2.659"}
            scicloj/tablecloth                {:mvn/version "6.012"}
            org.clojure/data.csv              {:mvn/version "1.0.0"}
            org.xerial/sqlite-jdbc            {:mvn/version "3.34.0"}
            clj-http/clj-http                 {:mvn/version "3.10.3"}
-           backtick                          {:mvn/version "0.3.4"}
-           com.github.jackrusher/mundaneum   {:git/sha "84476918ee47b66a2d6128e1a90780e52fd2ae44"}}
+           backtick/backtick                 {:mvn/version "0.3.4"}
+           jackrusher/mundaneum              {:git/url "https://github.com/jackrusher/mundaneum/"
+                                              :git/sha "84476918ee47b66a2d6128e1a90780e52fd2ae44"}
+           dk.ative/docjure                  {:mvn/version "1.16.0"}
+           }
  
  :aliases {;; clj -X:web-pages
            :web-pages 
@@ -24,3 +27,5 @@
                             :paths   ["index.md"
                                       "notebooks/scotgov_datasets.clj"
                                       "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"]}}}}
+
+

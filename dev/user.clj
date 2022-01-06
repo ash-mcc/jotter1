@@ -22,6 +22,8 @@
   ;; or call `clerk/show!` explicitly
   (clerk/show! "notebooks/scotgov_datasets.clj")
   (clerk/show! "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj")
+  (clerk/show! "notebooks/investigate_onscreen_controls.clj")
+  (clerk/show! "notebooks/church.clj")
 
   (clerk/show! "index.md")
 
@@ -34,5 +36,9 @@
   ;; generate a 'static app'
   (clerk/build-static-app! {:paths (mapv #(str "notebooks/" % ".clj")
                                          '[scotgov_datasets])})
+  
+  (clerk/build-static-app! {:paths ["index.md"
+                                    "notebooks/scotgov_datasets.clj"
+                                    "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"]})
 
   )

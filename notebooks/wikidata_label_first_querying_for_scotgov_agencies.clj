@@ -35,7 +35,7 @@
    :non-dept-publ-body 
    '[[?item (wdt :instance-of) (entity "non-departmental public body")
       _ (wdt :applies-to-jurisdiction) (entity "Scotland")]
-     :minus [[?item (wdt :instance-of) (entity "General lighthouse authority")]]]
+     :minus [[?item (wdt :instance-of) (entity "general lighthouse authority")]]]
    
    :commission          
    '[[?item (wdt :instance-of) (entity "commission" :office-held-by-head-of-the-organization (entity "commissioner"))
