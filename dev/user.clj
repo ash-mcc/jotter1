@@ -39,6 +39,7 @@
   
   (clerk/build-static-app! {:paths ["index.md"
                                     "notebooks/scotgov_datasets.clj"
-                                    "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"]})
+                                    "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"]
+                            :bundle? false})
 
   )
