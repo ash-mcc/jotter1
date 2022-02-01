@@ -33,6 +33,13 @@
   (-> @v/!viewers :root (get 10) :fetch-opts :n)
   (swap! v/!viewers update-in [:root 10 :fetch-opts] #(assoc % :n 35))
 
+  ;; [As is, THIS DOESN'T WORK. Probably need to pre-process that viewer.css file or supply a downstream derivative.]
+  ;; Tweak where Clerk gets its stylesheet from
+  ;; NOTE: Because of the way in which this is configured, 
+  ;;       the viewer.css file needs to be served from a webserver, e.g.
+  ;;          python3 -m http.server 7778 --directory public
+  (swap! nextjournal.clerk.config/!resource->url assoc "/css/viewer.css" "http://localhost:7778/css/viewer.css")
+
   ;; generate a 'static app'
   (clerk/build-static-app! {:paths (mapv #(str "notebooks/" % ".clj")
                                          '[scotgov_datasets])})
