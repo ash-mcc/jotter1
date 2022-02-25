@@ -1,8 +1,8 @@
 {:paths   ["dev"]
- :deps    {;; Martin's proposed stable
-           ;;io.github.nextjournal/clerk       {:mvn/version "0.4.305"}
-           ;; one possibilt supporting the interactivity notebook
-           io.github.nextjournal/clerk {:mvn/version "0.5.346"}
+ :deps    {;; Martin's latest (at 25th Feb 2022) stable
+           ;;io.github.nextjournal/clerk {:mvn/version "0.5.346"}
+           ;; Martin's commit which supports 3d-require
+           io.github.nextjournal/clerk {:git/sha "6e188f0457de060f619d377408cabb66e61d8582"}
            
            com.github.seancorfield/next.jdbc {:mvn/version "1.2.659"}
            scicloj/tablecloth                {:mvn/version "6.012"}

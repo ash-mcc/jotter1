@@ -22,6 +22,7 @@
   ;; or call `clerk/show!` explicitly
   (clerk/show! "notebooks/scotgov_datasets.clj")
   (clerk/show! "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj")
+  (clerk/show! "notebooks/pasi_poc_flowchart.clj")
   (clerk/show! "notebooks/investigate_onscreen_controls.clj")
   (clerk/show! "notebooks/church.clj")
 
