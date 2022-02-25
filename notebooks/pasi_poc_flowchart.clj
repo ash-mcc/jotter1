@@ -1,13 +1,15 @@
 ;; # A flowchart of PASI's proof-of-concept implementation
 
-;; The somewhat ideal, conceptual flow of data...
+;; A somewhat ideal view of the flow of waste reduction related data 
+;; through the PASI (Participatory Accounting for Social Impact) system.
 
 ^{:nextjournal.clerk/visibility #{:hide-ns}}
 (ns pasi-poc-flowchart
   (:require [utils :as utils]
             [nextjournal.clerk :as clerk]))
 
-^{::clerk/visibility :hide}
+^{::clerk/visibility :hide
+  ::clerk/width :full}
 (clerk/with-viewer utils/mermaid
                    "flowchart LR
 
