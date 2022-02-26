@@ -1,7 +1,13 @@
-;; # A flowchart of PASI's proof-of-concept implementation
+;; # Data flow in the proof-of-concept implementation for PASI
 
 ;; A somewhat ideal view of the flow of waste reduction related data 
 ;; through the PASI (Participatory Accounting for Social Impact) system.
+
+;; * Generally participants publish observations/measurements via... into a distributed data graph (LoD, RDF).
+;; * The participants ZWS and DCS publish ref data.
+;; * Additionally the participant DCS publishes joining/mapping data as the basis.
+;; * And a service provides GRAPHQL and SPARLQ access.
+;; * And webapps/tools that consume and provide dashboard (aimed at anyone) and analytics.
 
 ^{:nextjournal.clerk/visibility #{:hide-ns}}
 (ns pasi-poc-flowchart
@@ -20,15 +26,11 @@
                     subgraph ace_padding [ ]
                     
                     subgraph ace_private [Private]
-                    ace0[\\admin/]-->|\"defines<br/> (internal process)\"|ace2[(\"furniture descriptions <br/> (Excel)\")]
-                    ace1[\\salesperson/]-->|\"measures<br/> (internal process)\"|ace3[(\"reused quantities <br/> (Excel)\")]
+                    ace0[\\sales team/]-->|\"record sales<br/> (internal process)\"|ace2[(\"furniture quantities <br/> (Excel spreadsheet)\")]
                     end
                     
-                    ace6[(\"furniture descriptions <br/> (PASI LoD)\")]
-                    ace7[(\"reused quantities <br/> (PASI LoD)\")]
-
-                    ace2-->|\"publish <br/> (PASI utility)\"|ace6
-                    ace3-->|\"publish<br/> (PASI utility)\"|ace7
+                    ace2-->|\"publish <br/> (PASI utility)\"|ace6[(\"furniture descriptions <br/> (PASI LoD)\")]
+                    ace2-->|\"publish <br/> (PASI utility)\"|ace7[(\"reused quantities <br/> (PASI LoD)\")]
                     
                     end %% ace_padding
                     end
@@ -41,15 +43,12 @@
                     subgraph stcil_padding [ ]
                     
                     subgraph stcil_private [Private]
-                    stcil0[\\admin/]-->|\"defines<br/> (internal process)\"|stcil2[(\"bin/route descriptions <br/> (CKAN)\")]
-                    stcil1[\\operative/]-->|\"measures<br/> (internal process)\"|stcil3[(\"recycling quantities <br/> (CKAN)\")]
+                    stcil0[\\waste management team/]
                     end
-                    
-                    stcil6[(\"bin/route descriptions <br/> (PASI LoD)\")]
-                    stcil7[(\"recycling quantities <br/> (PASI LoD)\")]
 
-                    stcil2-->|\"publish <br/> (PASI utility)\"|stcil6
-                    stcil3-->|\"publish<br/> (PASI utility)\"|stcil7
+                    stcil0-->|\"publish measurements<br/> (internal process)\"|stcil2[(\"kerbside bin quantities <br/> (CSV on CKAN)\")]
+                    stcil2-->|\"publish <br/> (PASI utility)\"|stcil6[(\"bin/route descriptions <br/> (PASI LoD)\")]
+                    stcil2-->|\"publish <br/> (PASI utility)\"|stcil7[(\"recycling quantities <br/> (PASI LoD)\")]
                     
                     end %% stcil_padding
                     end
@@ -65,7 +64,7 @@
                     zws1[\\staff/]
                     end
 
-                    zws2[(\"'The Carbon Metric' <br/> (Excel)\")]-->|\"publish<br/> (PASI utility)\"|zws3[(\"'The Carbon Metric' <br/> (PASI LoD)\")]
+                    zws2[(\"'The Carbon Metric' <br/> (Excel spreadsheet)\")]-->|\"publish<br/> (PASI utility)\"|zws3[(\"'The Carbon Metric' <br/> (PASI LoD)\")]
 
                     zws1-->|\"publish<br/> (internal process)\"|zws2
 
@@ -78,8 +77,8 @@
                     subgraph dcs [DCS - Data Commons Scotland]
                     subgraph dcs_padding [ ]
 
-                    dcs0[\\maintainer/]-->|\"defines<br/> (PASI utility)\"|dcs1[(\"ACE metrics → reference metrics <br/> (PASI LoD)\")]
-                    dcs0-->|\"defines<br/> (PASI utility)\"|dcs2[(\"STCIL metrics → reference metrics <br/> (PASI LoD)\")]
+                    dcs0[\\maintainer/]-->|\"estimate <br/> (PASI utility)\"|dcs1[(\"ACE metrics → reference metrics <br/> (PASI LoD)\")]
+                    dcs0-->|\"estimate <br/> (PASI utility)\"|dcs2[(\"STCIL metrics → reference metrics <br/> (PASI LoD)\")]
                     
                     dcs1-.->|\"referenced by <br/> (RDF)\"|dcs12[(\"waste reductions <br/> (PASI LoD)\")]
                     dcs2-.->|\"referenced by <br/> (RDF)\"|dcs12
@@ -94,7 +93,7 @@
                     subgraph public [Member of the public]
                     subgraph public_padding [ ]
                     public1[/web app/]
-                    public2[/data analysis PASI utility/]
+                    public2[/data analysis tool/]
                     end %% public_padding
                     end
                     
