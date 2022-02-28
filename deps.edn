@@ -18,16 +18,17 @@
  :aliases {:web-pages   
           ;; To use this alias...
           ;; (1) run a webserver, e.g.
-          ;;       python3 -m http.server 7778 --directory public/build
+          ;;       python3 -m http.server 7778 --directory public
           ;; (2) and run this alias, e.g.
           ;;       clj -X:web-pages
           ;; (3) once Clerk has finished generating the HTML files
           ;;       it will open a web browser at the 'index' URL for those HTML files:
-          ;;         http://localhost:7778/
+          ;;         http://localhost:7778/jotter1/
           {:extra-paths ["src" "datasets"]
            :exec-fn     nextjournal.clerk/build-static-app!
            :exec-args   {:bundle?     false
-                         ;:path-prefix "build/"
+                         :out-path    "public/jotter1"
+                         :path-prefix "jotter1/"
                          :paths       ["index.md"
                                        "notebooks/scotgov_datasets.clj"
                                        "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"
