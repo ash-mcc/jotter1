@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head><title>Ash's jotter #​1 🗒️</title><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><script src="https://cdn.tailwindcss.com?plugins=typography" type="text/javascript"></script><script>tailwind.config = {
+<html class="overflow-hidden min-h-screen"><head><title>Ash's jotter #​1 🗒️</title><meta charset="UTF-8"><meta content="width=device-width, initial-scale=1" name="viewport"><script src="https://cdn.tailwindcss.com?plugins=typography" type="text/javascript"></script><script>tailwind.config = {
   darkMode: "class",
   content: ["./public/build/index.html", "./public/build/**/*.html", "./build/viewer.js"],
   safelist: ['dark'],
@@ -35,7 +35,7 @@
     @apply font-serif antialiased text-gray-900 sm:overscroll-y-none;
   }
   code, .code {
-    @apply font-mono text-sm text-gray-900 bg-slate-50 px-0.5 py-px rounded dark:bg-slate-800;
+    @apply font-mono text-sm text-gray-900 bg-slate-50 px-0.5 py-px rounded dark:bg-gray-800;
   }
   code::before, code::after { @apply content-none !important; }
   h1, h2, h3, h4, h5, h6 {
@@ -115,13 +115,6 @@
 .page {
   @apply max-w-5xl mx-auto px-12 box-border flex-shrink-0;
 }
-.toc-content {
-  @apply translate-x-[-110%] opacity-0;
-}
-.toc:hover .toc-content,
-.toc.pinned .toc-content {
-  @apply translate-x-0 opacity-100;
-}
 .max-w-prose { @apply max-w-[46rem] !important; }
 .max-w-wide  { @apply max-w-3xl !important; }
 
@@ -143,7 +136,7 @@
 /* --------------------------------------------------------------- */
 
 .viewer-code {
-  @apply font-mono bg-slate-100 rounded-sm text-sm mt-4 overflow-x-auto dark:bg-slate-800;
+  @apply font-mono bg-slate-100 rounded-sm text-sm mt-4 overflow-x-auto dark:bg-gray-800;
 }
 .viewer-code .cm-content {
   @apply py-4 px-8;
@@ -253,6 +246,7 @@
     prose-headings:mb-6
     prose-th:mb-0
     prose-img:mb-0
+    prose-code:font-medium prose-code:bg-slate-100
     max-w-none;
 }
 .viewer-markdown li > p {
@@ -300,6 +294,7 @@
 /* --------------------------------------------------------------- */
 
 .viewer-notebook { @apply py-16; }
+#clerk-static-app .viewer-notebook { @apply pt-[0.8rem] pb-16; }
 .viewer-markdown *:first-child:not(.viewer-code) { @apply mt-0; }
 .viewer + .viewer { @apply mt-6; }
 .viewer-markdown + .viewer { @apply mt-3; }
@@ -357,12 +352,6 @@
 /* Devdocs */
 /* --------------------------------------------------------------- */
 
-.collapsed-sidebar:not(.mobile-sidebar) .sidebar-content {
-  @apply transition-all duration-200 ml-[-360px] opacity-0;
-}
-.collapsed-sidebar:hover:not(.mobile-sidebar) .sidebar-content {
-  @apply ml-0 opacity-100;
-}
 .logo, .logo-white {
   @apply block indent-[-999em];
   background: url(/images/nextjournal-logo.svg) center center no-repeat;
@@ -378,7 +367,7 @@
 .vega-embed .chart-wrapper { @apply h-auto !important; }
 /* fixes fraction separators being overridden by tw’s border-color */
 .katex * { @apply border-black; }
-</style><script src="https://storage.googleapis.com/nextjournal-cas-eu/data/8Vt3Eko1RGonTrRXaLTP6Ly5XugGnYiRapACBxSoZ2RKwFztsi2NYXvTb5vyCTFya2RDgK9vXwVvKBnQ8dWopcmvA5" type="text/javascript"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.13.13/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&amp;family=Fira+Mono:wght@400;700&amp;family=Fira+Sans+Condensed:ital,wght@0,700;1,700&amp;family=Fira+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&amp;family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet" type="text/css"></head><body><div id="clerk-static-app"></div><script>let viewer = nextjournal.clerk.sci_viewer
+</style><script src="https://storage.googleapis.com/nextjournal-cas-eu/data/5194hPZT3iY3GHqVE6DrrPepE1JBLZFqnxsgvEnPToPL8NKwxt73cazmhBEMhA3be7sTBNLdFNKwSgG8HV4MpRD6" type="text/javascript"></script><link href="https://cdn.jsdelivr.net/npm/katex@0.13.13/dist/katex.min.css" rel="stylesheet" type="text/css"><link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&amp;family=Fira+Mono:wght@400;700&amp;family=Fira+Sans+Condensed:ital,wght@0,700;1,700&amp;family=Fira+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&amp;family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet" type="text/css"></head><body><div id="clerk-static-app"></div><script>let viewer = nextjournal.clerk.sci_viewer
 let app = nextjournal.clerk.static_app
 let opts = viewer.read_string("{:bundle? false, :out-path \"public/jotter1\", :path-prefix \"jotter1/\", :paths [\"index.md\" \"notebooks/scotgov_datasets.clj\" \"notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj\" \"notebooks/pasi_poc_flowchart.clj\"], :path->doc {\"index.md\" {:nextjournal/value {:blocks [{:nextjournal/value {:type :doc, :content [{:type :heading, :content [{:type :text, :text \"Ash's jotter #​1 🗒️\"}], :heading-level 1} {:type :paragraph, :content [{:type :text, :text \"Walk-throughs, notes and other jottings on various topics.\"}]}]}, :nextjournal/viewer :markdown} {:nextjournal/viewer :clerk/result, :nextjournal/value {:nextjournal/edn \"{:path [], :nextjournal/value [:div.md:grid.md:gap-8.md:grid-cols-2.pb-8 [:a.rounded-lg.shadow-lg.border.border-gray-300.relative.flex.flex-col.hover:border-indigo-600.group.mb-8.md:mb-0 {:href #viewer-eval (v/doc-url \\\"notebooks/scotgov_datasets.clj\\\"), :style {:height 300}} [:div.flex-auto.overflow-hidden.rounded-t-md.flex.items-center.px-3.py-4 [:img {:src \\\"img/preview-scotgov-datasets.png\\\", :width \\\"100%\\\", :style {:object-fit \\\"contain\\\"}}]] [:div.sans-serif.border-t.border-gray-300.px-4.py-2.group-hover:border-indigo-600 [:div.font-bold.block.group-hover:text-indigo-600 \\\"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Datasets from statistics.gov.scot which might be useful to the_od_bods project\\\"] [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal \\\"We generate a CSV file that describes the 311 datasets (15 organisations) that are available via Scot gov’s SPARQL endpoint. \\\"]]] [:a.rounded-lg.shadow-lg.border.border-gray-300.relative.flex.flex-col.hover:border-indigo-600.group.mb-8.md:mb-0 {:href #viewer-eval (v/doc-url \\\"notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj\\\"), :style {:height 300}} [:div.flex-auto.overflow-hidden.rounded-t-md.flex.items-center.px-3.py-4 [:img {:src \\\"https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Mundaneum_Tiräng_Karteikaarten.jpg/440px-Mundaneum_Tiräng_Karteikaarten.jpg\\\", :width \\\"100%\\\", :style {:object-fit \\\"contain\\\"}}]] [:div.sans-serif.border-t.border-gray-300.px-4.py-2.group-hover:border-indigo-600 [:div.font-bold.block.group-hover:text-indigo-600 \\\"The label-first 🏷️ querying of WikiData for Scottish government agencies\\\"] [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal \\\"We construct a label-first query that is equivalent to CTC24's more typical QID-first Wikidata SPARQL query, for Scottish government agencies\\\"]]] [:a.rounded-lg.shadow-lg.border.border-gray-300.relative.flex.flex-col.hover:border-indigo-600.group.mb-8.md:mb-0 {:href #viewer-eval (v/doc-url \\\"notebooks/pasi_poc_flowchart.clj\\\"), :style {:height 300}} [:div.flex-auto.overflow-hidden.rounded-t-md.flex.items-center.px-3.py-4 [:img {:src \\\"img/pasi-poc-flowchart.png\\\", :width \\\"100%\\\", :style {:object-fit \\\"contain\\\"}}]] [:div.sans-serif.border-t.border-gray-300.px-4.py-2.group-hover:border-indigo-600 [:div.font-bold.block.group-hover:text-indigo-600 \\\"A flowchart of PASI's proof-of-concept implementation\\\"] [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal \\\"A somewhat ideal view of the flow of waste reduction related data \\\\n        through the PASI (Participatory Accounting for Social Impact) system\\\"]]]], :nextjournal/viewer {:name :html, :render-fn #viewer-fn v/html}}\", :nextjournal/viewer {:name :html}}, :path []}], :title \"Ash's jotter #​1 🗒️\"}, :nextjournal/viewer :clerk/notebook, :scope {:namespace :index}}}, :path->url {\"index.md\" \"\", \"notebooks/scotgov_datasets.clj\" \"notebooks/scotgov_datasets.html\", \"notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj\" \"notebooks/wikidata_label_first_querying_for_scotgov_agencies.html\", \"notebooks/pasi_poc_flowchart.clj\" \"notebooks/pasi_poc_flowchart.html\"}, :current-path \"index.md\"}")
 app.init(opts)
