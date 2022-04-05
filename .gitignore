@@ -1,0 +1,14 @@
+.cache/
+.calva/
+.clerk/
+.clj-kondo/
+.cpcache/
+.lsp/
+.nrepl-port
+church-weeklyOffering-perPersonPerYear.csv
+church-weeklyOffering-perPersonPerYear.xlsx
+notes.txt
+public/jotter1/
+resources/church/
+scotgov-datasets.csv
+tmp/

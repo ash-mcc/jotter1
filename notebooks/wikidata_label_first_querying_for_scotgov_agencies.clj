@@ -1,4 +1,4 @@
-;; # The _label-first_ 🏷️ querying of WikiData for Scottish government agencies
+;; # The label-first 🏷️ querying of WikiData for Scottish government agencies
 
 ;; ## Intro 
 
@@ -19,6 +19,7 @@
 ;; ## Querying
 
 ;; Load the helper libraries.
+^{:nextjournal.clerk/toc true}
 (ns wikidata-label-first-querying-for-scotgov-agencies
   (:require [clojure.string :as str]
             [mundaneum.query :as wd]

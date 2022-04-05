@@ -1,7 +1,10 @@
 {:paths   ["dev"]
  :deps    {
+           ;; Martin's commit (on 30th Mar 2022) which supports TOC Redux & Dark Mode Toggle
+           io.github.nextjournal/clerk {:git/sha "361a671489b6f6b7d28cc9089d5e04605e0d03be"}
+
            ;; Martin's latest (at ~3rd Mar 2022) stable
-           io.github.nextjournal/clerk {:mvn/version "0.6.387"}
+           ;; io.github.nextjournal/clerk {:mvn/version "0.6.387"}
            
            ;; Martin's commit which supports 3d-require
            ;; io.github.nextjournal/clerk {:git/sha "6e188f0457de060f619d377408cabb66e61d8582"}

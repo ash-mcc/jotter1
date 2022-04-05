@@ -1,8 +1,10 @@
-;; # Datasets from statistics.gov.scot which might be useful to _od-bods_
+;; # Datasets from statistics.gov.scot which might be useful to the OD_BODS project
+;; (Read about the `OD_BODS` project at https://github.com/OpenDataScotland/the_od_bods )
 
 
 ;; ## Software set-up
 ;; Load some helper libraries.
+^{:nextjournal.clerk/toc true}
 (ns scotgov-datasets
   (:require [clojure.java.io :as io]
             [clojure.data.csv :as csv]
@@ -111,7 +113,7 @@ WHERE {
                              (tc/drop-missing :creator)))
 
 
-;; ## Examine our final `v3` version
+;; ## Examine our final v3 version
 
 ;; Number of datasets.
 (-> scotgov-datasets-v3 :uri count)
@@ -120,7 +122,7 @@ WHERE {
 (-> scotgov-datasets-v3 :creator distinct count)
 
 
-;; ## Convert into an _od-bods_ oriented format
+;; ## Convert into an OD_BODS oriented format
 
 ;; Define a few helper functions.
 
@@ -139,7 +141,7 @@ WHERE {
           %)
        column))
 
-;; Convert into an _od-bods_ oriented format.
+;; Convert into an OD_BODS oriented format.
 (def scotgov-datasets-v4 (-> scotgov-datasets-v3
          (tc/update-columns {:issued   ->stringify-issued-vals
                              :modified ->stringify-modified-vals
