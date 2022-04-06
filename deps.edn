@@ -10,7 +10,7 @@
            ;; io.github.nextjournal/clerk {:git/sha "6e188f0457de060f619d377408cabb66e61d8582"}
            
            com.github.seancorfield/next.jdbc {:mvn/version "1.2.659"}
-           scicloj/tablecloth                {:mvn/version "6.012"}
+           scicloj/tablecloth                {:mvn/version "6.076"}
            org.clojure/data.csv              {:mvn/version "1.0.0"}
            org.xerial/sqlite-jdbc            {:mvn/version "3.34.0"}
            clj-http/clj-http                 {:mvn/version "3.10.3"}
