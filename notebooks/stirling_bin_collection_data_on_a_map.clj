@@ -23,7 +23,8 @@
             [tablecloth.api :as tc]
             [tech.v3.dataset :as tds]
             [clj-http.client :as http]
-            [nextjournal.clerk :as clerk])
+            [nextjournal.clerk :as clerk]
+            [nextjournal.clerk.viewer :as v])
   (:import java.net.URLEncoder
            java.io.ByteArrayInputStream))
 
@@ -98,13 +99,16 @@ WHERE {
 
 ;; ## Link bin collections to map areas
 
-;; Narrow and parse the data:
-;; * Drop the `Internal Transfer` rows.
-;; * Parse `:places` from the `Route` column.
-;; * Parse `:yyyyMMdd` from the `Date` column.
+^{::clerk/visibility :fold}
+(defn date->yyyyMMdd
+  [^String date]
+  (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
+    (str yyyy "-" MM "-" dd)))
 
+^{::clerk/visibility :fold}
 (def text-substitutions 
-  ;; NB no specific ordering
+  ;; For a cleaner syntax and correct spellings.
+  ;; NB no specific ordering.
   {"and "                   ","
    "&"                      ","
    "\n"                      ","
@@ -132,9 +136,9 @@ WHERE {
    "St Nininas"             "St Ninians"
    "Torbex"                 "Torbrex"
    "Balamaha"               "Balmaha"
-   "Broombridge"            "Broomridge"
-   })
+   "Broombridge"            "Broomridge"})
 
+^{::clerk/visibility :fold}
 (defn apply-text-substitutions
   [^String route]
   (loop [todo        text-substitutions 
@@ -145,16 +149,20 @@ WHERE {
         (recur (rest todo)
                (str/replace accumulator match substitution))))))
 
+^{::clerk/visibility :fold}
 (defn parse-components 
   [^String route]
   (->> (str/split route #",")
        (map str/trim)))
 
+^{::clerk/visibility :fold}
 (defn datazones-whose-names-wholely-contain
   [^String route-component]
   (filter #(str/includes? % route-component) (:datazone map-areas)))
 
+^{::clerk/visibility :fold}
 (def lookup-table
+  ;; route-component -> datazones
   {"Cultenhove"                         ["Borestone"]
    "Loch Katrine"                       ["Highland"]
    "Thornhill"                          ["Carse of Stirling"]
@@ -213,48 +221,120 @@ WHERE {
    "Cambuskenneth"                      ["Forth"]
    "Sherrifmuir"                        ["Dunblane East"]
    "Dunblane North"                     ["Dunblane East"]
-   "Blairhoyle"                         ["Carse of Stirling"]}
-  )
+   "Blairhoyle"                         ["Carse of Stirling"]})
 
+^{::clerk/visibility :fold}
 (defn ->datazones
   [^String route-component]
   (if-let [datazones (not-empty (datazones-whose-names-wholely-contain route-component))]
     datazones
     (if-let [datazones (not-empty (get lookup-table route-component))]
       datazones
-      nil)))
+      [])))
 
+^{::clerk/visibility :fold}
+(defn ->population
+  [datazone]
+  (-> map-areas
+      (tc/select-rows (fn [row] (= datazone (:datazone row))))
+      :population
+      first))
 
-(defn date->yyyyMMdd 
-  [^String date]
-  (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
-    (str yyyy "-" MM "-" dd)))
+^{::clerk/visibility :fold}
+(defn ->fractions
+  [datazones]
+  (map ->population datazones))
 
-(def tmp 
+(def bin-collections-v2
   (-> bin-collections
-      (tc/drop-rows (fn [row] (= "Internal Stirling Council Transfer" (get row "Route"))))
-      (tc/map-columns :route-components ["Route"] (fn [route] (-> route 
-                                                                  apply-text-substitutions 
-                                                                  parse-components)))
-      (tc/map-columns :yyyyMMdd ["Date"] (fn [date] (parse-yyyyMMdd date)))))
+      ;; Ignore internal transfers
+      (tc/drop-rows (fn [row] 
+                      (= "Internal Stirling Council Transfer" (get row "Route"))))
+      ;; Parse the date
+      (tc/map-columns :yyyyMMdd ["Date"] 
+                      (fn [date] (parse-yyyyMMdd date)))
+      ;; Map: route -> datazones
+      (tc/map-columns :datazones ["Route"] 
+                      (fn [route] (->> route 
+                                       apply-text-substitutions 
+                                       parse-components
+                                       (map ->datazones)
+                                       flatten
+                                       distinct
+                                       vec)))
+      ;; Map: datazones -> populations
+      (tc/map-columns :populations [:datazones] 
+                      (fn [datazones] (->> datazones
+                                           (map ->population)
+                                           vec)))
+      ;; Map: populations -> fractions
+      (tc/map-columns :fractions [:populations] 
+                      (fn [populations] (let [total (apply + populations)]
+                                          (->> populations
+                                               (map #(/ % total))
+                                               vec))))
+      ;; Map: quantity, fractions -> fractional-quantities 
+      (tc/map-columns :fractional-quantities ["Quantity" :fractions] 
+                      (fn [quantity fractions] 
+                        (->> fractions
+                             (map #(* quantity %))
+                             vec)))
+      ;; Unroll the collection holding columns and rename each its singular form
+      (tc/unroll [:datazones :populations :fractions :fractional-quantities])
+      (tc/rename-columns {:datazones             :datazone
+                          :populations           :population
+                          :fractions             :fraction
+                          :fractional-quantities :fractional-quantity})))
 
-(def tmp2
-  (->> tmp
-       :route-components
-       flatten
-       distinct
-       (remove (fn [route-component]
-                 (not-empty (datazones-whose-names-wholely-contain route-component))))
-       sort))
+;; ## Plot a placeholder graph
 
-(prn tmp2)
+;; Define a helper function that builds a plotline, from the data.
+(defn ->plotline [name colour point-data #_extra]
+  {:name          name
+   :x             (-> point-data :yyyyMMdd vec)
+   :y             (-> point-data :month-quantity vec)
+   ;:line          {:color colour :width 3}
+   ;:customdata    (->> extra
+   ;                    :percentage 
+   ;                    (map #(if (nil? %) "n/a" (format "%.1f%%" (double %)))) 
+   ;                    vec)
+   :hovertemplate (str "<b>" name "</b> (%{x})<br>"
+                       "%{yaxis.title.text}: %{y}<br>"
+                       ;"portion of total: %{customdata}<extra></extra>"
+                       )})
 
-(count tmp2)
+(defn point-data
+ [datazone] 
+  (-> bin-collections-v2
+      (tc/select-rows (fn [row] (= datazone (:datazone row))))
+      (tc/map-columns :yyyyMMdd [:yyyyMMdd] (fn [yyyyMMdd] (str (subs yyyyMMdd 0 8) "01"))) ;; -> yyyy-MM-01
+      (tc/group-by [:yyyyMMdd])
+      (tc/aggregate #(reduce + (% :fractional-quantity)))  
+      (tc/rename-columns {"summary" :month-quantity})
+      ))
 
-(prn (into {} (map #(vector % []) tmp2)))
 
-(:datazone map-areas)
+;; Display the graph.
+(v/plotly 
+ {:data   [(->plotline "Dunblane East" "#C9A9A6" (point-data "Dunblane East"))
+           (->plotline "Dunblane West" "#5b5a57" (point-data "Dunblane West"))
+           (->plotline "Raploch" "red" (point-data "Raploch"))]
+           :layout {:title "Bin collection quantities across Stirling"
+                    :height 400 ;:margin {:l 110 :b 40}
+                    :xaxis {:title "date" :type "date" :showgrid false ;:dtick 1
+                            }
+                    :yaxis {:title "tonnes" ;:tickformat "," :rangemode "tozero"
+                            }
+                    :legend {:traceorder "reversed"}
+                    ;; :plot_bgcolor "#fff1e5" :paper_bgcolor "floralwhite"
+                    }})
 
-(if-let [v []]
-  :a
-  :b)
+
+
+(comment
+
+(-> (tc/dataset [{:a "y" :b 3 :c 1} {:b 5 :a "x" :c 2} {:a "x" :b 1 :c 2}])
+    (tc/group-by [:a :c])
+    (tc/aggregate #(reduce + (% :b))))
+  
+  )
