@@ -1,7 +1,7 @@
 {:paths   ["dev"]
  :deps    {
            ;; Martin's commit (on 30th Mar 2022) which supports TOC Redux & Dark Mode Toggle
-           io.github.nextjournal/clerk {:git/sha "361a671489b6f6b7d28cc9089d5e04605e0d03be"}
+           io.github.nextjournal/clerk       {:git/sha "361a671489b6f6b7d28cc9089d5e04605e0d03be"}
 
            ;; Martin's latest (at ~3rd Mar 2022) stable
            ;; io.github.nextjournal/clerk {:mvn/version "0.6.387"}
@@ -18,6 +18,7 @@
            jackrusher/mundaneum              {:git/url "https://github.com/jackrusher/mundaneum/"
                                               :git/sha "84476918ee47b66a2d6128e1a90780e52fd2ae44"}
            dk.ative/docjure                  {:mvn/version "1.16.0"}
+           factual/geo                       {:mvn/version "3.0.1"}
            }
  
  :aliases {:web-pages   
