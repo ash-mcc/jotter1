@@ -26,7 +26,8 @@
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as v])
   (:import java.net.URLEncoder
-           java.io.ByteArrayInputStream))
+           java.io.ByteArrayInputStream
+           [com.univocity.parsers.csv CsvParser CsvParserSettings]))
 
 ;; ## Read the bin collections data
 
@@ -61,7 +62,7 @@ PREFIX ent-id: <http://statistics.gov.scot/id/statistical-entity/>
 PREFIX stat-geo: <http://statistics.data.gov.uk/def/statistical-geography#>
 PREFIX geo-id: <http://statistics.gov.scot/id/statistical-geography/>
 PREFIX geosparql: <http://www.opengis.net/ont/geosparql#>
-SELECT ?datazone ?population # ?geometry <- commented out for now, problem with its encoding
+SELECT ?datazone ?population ?geometry 
 WHERE {
   ?dzUri stat-geo:status \"Live\";
          stat-geo:parentcode/rdfs:label \"Stirling\";
@@ -94,13 +95,17 @@ WHERE {
       (.getBytes "UTF-8")
       (ByteArrayInputStream.)
       (tds/->dataset {:file-type :csv
+                      :csv-parser(CsvParser.
+                                     (doto (CsvParserSettings.)
+                                       ;; up the max field length to allows for the large WKT geometry strings
+                                       (.setMaxCharsPerColumn (* 65536 8))))
                       :key-fn    keyword})))
 
 
 ;; ## Link bin collections to map areas
 
 ^{::clerk/visibility :fold}
-(defn date->yyyyMMdd
+(defn parse-yyyyMMdd
   [^String date]
   (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
     (str yyyy "-" MM "-" dd)))
@@ -289,11 +294,12 @@ WHERE {
 ;; ## Plot a placeholder graph
 
 ;; Define a helper function that builds a plotline, from the data.
-(defn ->plotline [name colour point-data #_extra]
+(defn ->plotline [name _colour point-data #_extra]
   {:name          name
    :x             (-> point-data :yyyyMMdd vec)
    :y             (-> point-data :month-quantity vec)
-   ;:line          {:color colour :width 3}
+   :line          {;:color colour 
+                   :width 2}
    ;:customdata    (->> extra
    ;                    :percentage 
    ;                    (map #(if (nil? %) "n/a" (format "%.1f%%" (double %)))) 
@@ -308,33 +314,73 @@ WHERE {
   (-> bin-collections-v2
       (tc/select-rows (fn [row] (= datazone (:datazone row))))
       (tc/map-columns :yyyyMMdd [:yyyyMMdd] (fn [yyyyMMdd] (str (subs yyyyMMdd 0 8) "01"))) ;; -> yyyy-MM-01
-      (tc/group-by [:yyyyMMdd])
-      (tc/aggregate #(reduce + (% :fractional-quantity)))  
-      (tc/rename-columns {"summary" :month-quantity})
+      (tc/group-by [:yyyyMMdd :population])
+      (tc/aggregate {:monthly-quantity #(reduce + (% :fractional-quantity))})  
+      (tc/map-columns :month-quantity [:monthly-quantity :population] (fn [monthly-quantity population] (/ monthly-quantity population)))
       ))
+
+(def plot-lines
+  (vec (for [datazone (map-areas :datazone)]
+         (->plotline datazone :placeholder-colour (point-data datazone)))))
 
 
 ;; Display the graph.
 (v/plotly 
- {:data   [(->plotline "Dunblane East" "#C9A9A6" (point-data "Dunblane East"))
-           (->plotline "Dunblane West" "#5b5a57" (point-data "Dunblane West"))
-           (->plotline "Raploch" "red" (point-data "Raploch"))]
-           :layout {:title "Bin collection quantities across Stirling"
-                    :height 400 ;:margin {:l 110 :b 40}
-                    :xaxis {:title "date" :type "date" :showgrid false ;:dtick 1
-                            }
-                    :yaxis {:title "tonnes" ;:tickformat "," :rangemode "tozero"
-                            }
-                    :legend {:traceorder "reversed"}
+ {:data   plot-lines
+  :layout {:title  "Bin collection quantities across Stirling"
+           :height 800 ;:margin {:l 110 :b 40}
+           :xaxis  {:title    "month"
+                    :type     "date"
+                    ;:showgrid false ;:dtick 1
+                    }
+           :yaxis  {:title "tonnes per person" ;:tickformat "," :rangemode "tozero"
+                    }
+           ;:legend {:traceorder "reversed"}
                     ;; :plot_bgcolor "#fff1e5" :paper_bgcolor "floralwhite"
-                    }})
+           }})
 
+
+^{::clerk/viewer :hide-result}
+(def leaflet
+  )
 
 
 (comment
 
-(-> (tc/dataset [{:a "y" :b 3 :c 1} {:b 5 :a "x" :c 2} {:a "x" :b 1 :c 2}])
-    (tc/group-by [:a :c])
-    (tc/aggregate #(reduce + (% :b))))
-  
+  (-> (tc/dataset [{:a "y" :b 3 :c 1} {:b 5 :a "x" :c 2} {:a "x" :b 1 :c 2}])
+      (tc/group-by [:a :c])
+      (tc/aggregate #(reduce + (% :b))))
+
+
+  (def body
+    (-> sparql
+        exec-against-scotgov))
+
+  body
+
+  (def x (-> body
+             (.getBytes "UTF-8")
+             (ByteArrayInputStream.)))
+
+  x
+
+
+
+  (def csv-parser
+    (CsvParser. 
+     (doto (CsvParserSettings.)
+                  (.setMaxCharsPerColumn (* 65536 8)))))
+
+  (def y  (tds/->dataset x {:file-type :csv
+                            :csv-parser parser
+                            :key-fn    keyword}))
+
+  (tc/shape y)
+  (-> y :geometry first)
+
+  ;; Super useful for seeing a WDT geometry on a map  
+  ;; http://arthur-e.github.io/Wicket/
+
+  map-areas-test
+
   )
