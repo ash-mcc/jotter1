@@ -1,6 +1,6 @@
 ;; # Stirling's bin collection quantities per DataZone
 
-;; ## Introduction
+;; ## 👋 Introduction
  
 ;; Stirling council has published Open Data about its _bin collections_.
 ;; Its data for 2021 includes town/area names.
@@ -8,7 +8,7 @@
 ;;
 ;; DataZones are well defined geographic areas that are associated with (statistical) data,
 ;; such as population data. This makes them useful when comparing between 
-;; geographically anchored, per-population quantities - like Stirling's bin collection quantities.
+;; geographically anchored, per-person quantities - like Stirling's bin collection quantities.
 ;;
 ;; We have used the term _approximately_ because mapping the bin collections data to DataZones 
 ;; is not simple and unamibiguous. 
@@ -19,11 +19,12 @@
 ;; based on relative populations of those DataZones.
 ;; Will the resulting approximation be accurate enough to be useful?
 
-;; ## Software libraries
+;; ### Software set-up
 
 ;; Load the helper libraries.
 ^{:nextjournal.clerk/toc true
-  ::clerk/visibility :fold}
+  ::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (ns stirling-bin-collection-quantities-per-datazone
   (:require [clojure.string :as str]
             [clojure.data.json :as json]
@@ -38,17 +39,19 @@
            [com.univocity.parsers.csv CsvParser CsvParserSettings]))
 
 ;; Specify how to display datasets.
+^{::clerk/viewer :hide-result}
 (clerk/set-viewers! [{:pred tc/dataset?
                       :transform-fn #(clerk/table {:head (tds/column-names %)
                                                    :rows (tds/rowvecs %)})}])
 
-;; ## DataZones
+;; ## 📍 DataZones
 
 ;; ### Read the DataZones data
 
 ;; Each DataZone will have a name, a geographic boundary and a population. 
 
-;; Define the SPARQL query to be used against the Scottish government SPARQL endpoint.
+;; Construct the SPARQL query to be used against the Scottish government SPARQL endpoint,
+;; to fetch the DataZone data.
 ^{::clerk/viewer :hide-result}
 (def sparql "
 PREFIX qb: <http://purl.org/linked-data/cube#>
@@ -78,7 +81,7 @@ WHERE {
 }
 ")
 
-;; Define how-to run a SPARQL query against the Scottish government SPARQL endpoint.
+;; Code how to run a SPARQL query against the Scottish government SPARQL endpoint.
 ^{::clerk/viewer :hide-result}
 (defn exec-against-scotgov [sparql]
   (:body (http/post "http://statistics.gov.scot/sparql"
@@ -109,7 +112,7 @@ WHERE {
          :href        "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
          :crossorigin "anonymous"}])
 
-;; Define a (Clerk) component for displaying a (Leaflet) map.
+;; Code a (Clerk) component for displaying a (Leaflet) map.
 ^{::clerk/viewer :hide-result}
 (def leaflet
   {:fetch-fn  (fn [_ x] x)
@@ -164,7 +167,7 @@ WHERE {
                           :geometry   (-> datazone :geometry .toString gio/read-wkt gio/to-geojson json/read-str)
                           :properties {:name (-> datazone :name)}})}})
 
-;; ## Bin collections
+;; ## 🚮 Bin collections
 
 ;; ### Read the bin collections data
 
@@ -180,18 +183,19 @@ WHERE {
 ;; Get a further description of the columns.
 (tc/info bin-collections)
 
-;; ## Map bin collection routes to DataZones
+;; ## 🗂️ Map bin collection routes to DataZones
 
-;; ### Define the mapping
+;; ### Define the routes to DataZones mappings
 
-;; Define a date parser.
+;; Code how to parse a date.
 ^{::clerk/viewer :hide-result}
 (defn parse-yyyyMMdd
   [^String date]
   (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
     (str yyyy "-" MM "-" dd)))
 
-;; Define how to clean the syntax of and correct the spellings within a named (bin collection) route.
+;; Specify textual substitutions for cleaning the syntax 
+;; and correcting the spelling of the name of a bin collection route.
 ^{::clerk/viewer :hide-result}
 (def text-substitutions 
   ;; NB no specific ordering.
@@ -224,7 +228,7 @@ WHERE {
    "Balamaha"               "Balmaha"
    "Broombridge"            "Broomridge"})
 
-;; Define a function that will apply all of the syntax/spelling corrections to a named route.
+;; Code how to apply all of the syntax/spell correcting substitutions to a route name.
 ^{::clerk/viewer :hide-result}
 (defn apply-text-substitutions
   [^String route]
@@ -236,20 +240,20 @@ WHERE {
         (recur (rest todo)
                (str/replace accumulator match substitution))))))
 
-;; Define how to split a named route into components.
+;; Code how to split a route name into component-route names.
 ^{::clerk/viewer :hide-result}
 (defn parse-components 
   [^String route]
   (->> (str/split route #",")
        (map str/trim)))
 
-;; Define a function that will return all DataZone names that (textually) wholely contain the route-component name.
+;; Code how to find all DataZone names that (textually) wholely contain the route-component name.
 ^{::clerk/viewer :hide-result}
 (defn datazone-names-wholely-containing
   [^String route-component]
   (filter #(str/includes? % route-component) (:name datazones)))
 
-;; Define a look-up table: route-component -> datazone.
+;; Define a look-up table of route-component name -> datazone name.
 ^{::clerk/viewer :hide-result}
 (def lookup-table
   ;; route-component -> datazone
@@ -313,7 +317,7 @@ WHERE {
    "Dunblane North"                     ["Dunblane East"]
    "Blairhoyle"                         ["Carse of Stirling"]})
 
-;; Map one route-component to many datazones.
+;; Code how to map one route-component to many datazones.
 ^{::clerk/viewer :hide-result}
 (defn ->datazone-names
   [^String route-component]
@@ -323,7 +327,7 @@ WHERE {
       datazone-names
       [])))
 
-;; Return the population of the given datazone.
+;; Code how to find the population of a named datazone.
 ^{::clerk/viewer :hide-result}
 (defn ->population
   [datazone-name]
@@ -332,10 +336,10 @@ WHERE {
       :population
       first))
 
-;; ### Apply the mapping
+;; ### Compute the bin collection quantities per DataZone
 
-;; Apply a pipleline data transformers to achieve the mapping.
-(def datazoned-bin-collections
+;; Apply our pipeline of data transformers/mappings to compute the quantities per DataZone.
+(def bin-collections-per-datazone
   (-> bin-collections
       ;; Ignore internal transfers
       (tc/drop-rows (fn [row] 
@@ -343,8 +347,8 @@ WHERE {
       ;; Parse the date
       (tc/map-columns :yyyyMMdd ["Date"] 
                       (fn [date] (parse-yyyyMMdd date)))
-      ;; Map: route -> datazones
-      (tc/map-columns :datazones ["Route"] 
+      ;; Map: one route -> many datazones
+      (tc/map-columns :datazone-names ["Route"] 
                       (fn [route] (->> route 
                                        apply-text-substitutions 
                                        parse-components
@@ -352,41 +356,40 @@ WHERE {
                                        flatten
                                        distinct
                                        vec)))
-      ;; Map: datazones -> populations
-      (tc/map-columns :populations [:datazones] 
-                      (fn [datazones] (->> datazones
-                                           (map ->population)
-                                           vec)))
-      ;; Map: populations -> fractions
+      ;; Map: datazone -> datazone population
+      (tc/map-columns :populations [:datazone-names] 
+                      (fn [datazone-names] (->> datazone-names
+                                                (map ->population)
+                                                vec)))
+      ;; Map: datazone populations of a route -> fractions per datazones of a route 
       (tc/map-columns :fractions [:populations] 
                       (fn [populations] (let [total (apply + populations)]
                                           (->> populations
                                                (map #(/ % total))
                                                vec))))
-      ;; Map: quantity, fractions -> fractional-quantities 
-      (tc/map-columns :fractional-quantities ["Quantity" :fractions] 
+      ;; Map: quantity, fractions per datazones of a route -> quantities per datazones of a route 
+      (tc/map-columns :quantities-per-datazones ["Quantity" :fractions] 
                       (fn [quantity fractions] 
                         (->> fractions
                              (map #(* quantity %))
                              vec)))
       ;; Unroll the collection holding columns, rename each to its singular form, and sort
-      (tc/unroll [:datazones :populations :fractions :fractional-quantities])
-      (tc/rename-columns {:datazones             :datazone
-                          :populations           :population
-                          :fractions             :fraction
-                          :fractional-quantities :fractional-quantity})
-      (tc/reorder-columns [:yyyyMMdd :datazone :fractional-quantity :fraction :population])
+      (tc/unroll [:datazone-names :populations :fractions :quantities-per-datazones])
+      (tc/rename-columns {:datazone-names           :datazone-name
+                          :populations              :population
+                          :fractions                :fraction-of-route-quantity
+                          :quantities-per-datazones :quantity-for-datazone})
+      (tc/reorder-columns [:yyyyMMdd :datazone-name :quantity-for-datazone :fraction-of-route-quantity :population])
       (tc/order-by [:yyyyMMdd :datazone])))
 
-;; ### Plot 
+;; ## 📉 Plot the bin collection quantities per person per DataZone 
 
 ;; Define a helper function that builds a plotline, from the data.
-(defn ->plotline [name _colour point-data #_extra]
+(defn ->plotline [name point-data]
   {:name          name
    :x             (-> point-data :yyyyMMdd vec)
-   :y             (-> point-data :month-quantity vec)
-   :line          {;:color colour 
-                   :width 2}
+   :y             (-> point-data :month-quantity-per-person vec)
+   :line          {:width 2}
    ;:customdata    (->> extra
    ;                    :percentage 
    ;                    (map #(if (nil? %) "n/a" (format "%.1f%%" (double %)))) 
@@ -397,18 +400,19 @@ WHERE {
                        )})
 
 (defn point-data
- [datazone] 
-  (-> bin-collections-v2
-      (tc/select-rows (fn [row] (= datazone (:datazone row))))
+ [datazone-name] 
+  (-> bin-collections-per-datazone
+      (tc/select-rows (fn [row] (= datazone-name (:datazone-name row))))
       (tc/map-columns :yyyyMMdd [:yyyyMMdd] (fn [yyyyMMdd] (str (subs yyyyMMdd 0 8) "01"))) ;; -> yyyy-MM-01
       (tc/group-by [:yyyyMMdd :population])
-      (tc/aggregate {:monthly-quantity #(reduce + (% :fractional-quantity))})  
-      (tc/map-columns :month-quantity [:monthly-quantity :population] (fn [monthly-quantity population] (/ monthly-quantity population)))
+      (tc/aggregate {:monthly-quantity #(reduce + (% :quantity-for-datazone))})  
+      (tc/map-columns :month-quantity-per-person [:monthly-quantity :population] (fn [monthly-quantity population] (/ monthly-quantity population)))
       ))
 
 (def plot-lines
-  (vec (for [datazone (map-areas :datazone)]
-         (->plotline datazone :placeholder-colour (point-data datazone)))))
+  (vec 
+   (for [datazone-name (bin-collections-per-datazone :datazone-name)]
+     (->plotline datazone-name (point-data datazone-name)))))
 
 
 ;; Display the graph.
@@ -422,14 +426,12 @@ WHERE {
                     }
            :yaxis  {:title "tonnes per person" ;:tickformat "," :rangemode "tozero"
                     }
-           ;:legend {:traceorder "reversed"}
-                    ;; :plot_bgcolor "#fff1e5" :paper_bgcolor "floralwhite"
            }})
 
 
-^{::clerk/viewer :hide-result}
-(def leaflet
-  )
+;; ## 🤔 Conclusions
+
+
 
 
 (comment
