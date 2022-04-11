@@ -23,66 +23,77 @@
 
 ^{::clerk/viewer :hide-result}
 (def leaflet
-  {:fetch-fn (fn [_ x] x)
-   :render-fn
-   '(fn [value]
-      (v/html
-       (reagent/with-let [!cljs-side-counter (reagent/atom 0)]
-                         [:<>
-         [:div
+  {:fetch-fn  (fn [_ x] x)
+   :render-fn '(fn [value]
+                 (v/html
+                  
+                   (when-let [{:keys [lat lng geojson]} value]
+                     [v/with-d3-require {:package ["leaflet@1.7.1/dist/leaflet.js"]} 
+                      (fn [leaflet]
+                        [:<>
+                         
+                         [:div
 
           ;; tries to re-init the map which isn't good so commented out for now
-          #_[:h3.cursor-pointer
+                          (reagent/with-let [!cljs-side-counter (reagent/atom 0)]
+                            [:h3.cursor-pointer
               ;; towards being able to have browser-side controls in cljs that change 
               ;; the browser-side leaflet map
-           {:on-click ;#(js/alert "BOO!") 
-            #(let [ix (swap! !cljs-side-counter inc)]
+                             {:on-click ;#(js/alert "BOO!") 
+                              #(let [ix (swap! !cljs-side-counter inc)]
                                               ;(reset! data (get choices ix)) doesn't work - can't reach back to the clj
-               ix)}
-           "Say boo " @!cljs-side-counter]
-          
-          ]
-         (when-let [{:keys [lat lng geojson]} value]
-           [v/with-d3-require {:package ["leaflet@1.7.1/dist/leaflet.js"]} 
-            (fn [leaflet]
-              [:div {:style {:height 400}
-                     :ref   (fn [el]
-                              (when el
-                                (let [m               (.map leaflet el (clj->js {:zoomControl true
-                                                                                 :zoomDelta   0.5
-                                                                                 :zoomSnap    0.0}))
-                                      location-latlng (.latLng leaflet lat lng)
-                                      location-marker (.marker leaflet location-latlng)
-                                      basemap-layer   (.tileLayer leaflet
-                                                                  "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                                  (clj->js
-                                                                   {;:subdomains    ["maps" "maps1" "maps2" "maps3" "maps4"]
+                                 ix)}
+                             "Say boo " @!cljs-side-counter])
+                          ]
+                         (letfn [(render-fn 
+                                   [] 
+                                   (js/console.log "render-fn called")
+                                   [:div#leaflet-hook {:style {:height 400}}])
+                                 (did-mount-fn 
+                                   []
+                                   (js/console.log "did-mount-fn called")
+                                   (let [m               (.map leaflet "leaflet-hook" (clj->js {:zoomControl true
+                                                                                               :zoomDelta   0.5
+                                                                                               :zoomSnap    0.0}))
+                                         location-latlng (.latLng leaflet lat lng)
+                                         location-marker (.marker leaflet location-latlng)
+                                         basemap-layer   (.tileLayer leaflet
+                                                                     "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                                     (clj->js
+                                                                      {;:subdomains    ["maps" "maps1" "maps2" "maps3" "maps4"]
                                                                ;:maxZoom       25
                                                                ;:maxNativeZoom 19
-                                                                    :attribution "openstreetmap.org"
+                                                                       :attribution "openstreetmap.org"
                                                                ;:errorTileUrl  "/transparent.gif"
-                                                                    }))
-                                      style-fn  (fn [^js feature]
-                                                  {:weight     1
-                                                   :opacity    0.5
-                                                   :color      "gray"
-                                                   "fillOpacity" 0.1})
-                                      geojson (clj->js geojson)
-                                      ;_ (js/console.log geojson)
-                                      geojson-layer   (.geoJson leaflet geojson
-                                                                (clj->js 
-                                                                 {:style style-fn
-                                                                  :onEachFeature (fn [feature layer]
-                                                                                   (let [properties-map (js->clj (.. feature -properties))
-                                                                                         datazone         (get properties-map "datazone")]
-                                                                                     (.bindTooltip layer datazone)))}))]
-                                  (.addTo basemap-layer m)
-                                  (.addTo location-marker m)
-                                  (.addTo geojson-layer m)
-                                  (.setView m location-latlng 8.7))))}]
-              
-
-              )])])))})
+                                                                       }))
+                                         style-fn        (fn [^js feature]
+                                                           {:weight     1
+                                                            :opacity    0.5
+                                                            :color      "gray"
+                                                            "fillOpacity" 0.1})
+                                         geojson         (clj->js geojson)
+                                          ;_ (js/console.log geojson)
+                                         geojson-layer   (.geoJson leaflet geojson
+                                                                   (clj->js
+                                                                    {:style         style-fn
+                                                                     :onEachFeature (fn [feature layer]
+                                                                                      (let [properties-map (js->clj (.. feature -properties))
+                                                                                            datazone       (get properties-map "datazone")]
+                                                                                        (.bindTooltip layer datazone)))}))]
+                                     (.addTo basemap-layer m)
+                                     (.addTo location-marker m)
+                                     (.addTo geojson-layer m)
+                                     (.setView m location-latlng 9)))
+                                 (did-update-fn 
+                                   [_this _prev-props] 
+                                   (js/console.log "did-update-fn called"))
+                                 (leaflet-component 
+                                   []
+                                   (reagent/create-class {:reagent-render       render-fn
+                                                          :component-did-mount  did-mount-fn
+                                                          :component-did-update did-update-fn}))]
+                           [leaflet-component])
+                         ])])))})
 
 
 ;^::clerk/no-cache
@@ -126,5 +137,5 @@
                                 {:on-click #(let [ix (swap! counter inc)]
                                               ;(reset! data (get choices ix)) doesn't work - can't reach back to the clj
                                               ix)} 
-                                "counter: " @counter])))
+                                "counter = " @counter])))
   nil)
