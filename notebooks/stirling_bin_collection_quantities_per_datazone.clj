@@ -36,6 +36,7 @@
             [nextjournal.clerk.viewer :as v])
   (:import java.net.URLEncoder
            java.io.ByteArrayInputStream
+           java.time.LocalDate
            [com.univocity.parsers.csv CsvParser CsvParserSettings]))
 
 ;; Specify how to display datasets.
@@ -187,12 +188,14 @@ WHERE {
 
 ;; ### Define the routes to DataZones mappings
 
-;; Code how to parse a date.
+;; Code how to parse a date from text, then convert it to its month-end date.
 ^{::clerk/viewer :hide-result}
-(defn parse-yyyyMMdd
-  [^String date]
-  (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
-    (str yyyy "-" MM "-" dd)))
+(defn ->month-end
+  [^String date-text]
+  (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date-text)
+        date           (LocalDate/parse (str yyyy "-" MM "-" dd))
+        month-end-date (.withDayOfMonth date (.length (.getMonth date) (.isLeapYear date)))]
+    (.toString month-end-date)))
 
 ;; Specify textual substitutions for cleaning the syntax 
 ;; and correcting the spelling of the name of a bin collection route.
@@ -342,89 +345,95 @@ WHERE {
 (def bin-collections-per-datazone
   (-> bin-collections
       ;; Ignore internal transfers
-      (tc/drop-rows (fn [row] 
+      (tc/drop-rows (fn [row]
                       (= "Internal Stirling Council Transfer" (get row "Route"))))
-      ;; Parse the date
-      (tc/map-columns :yyyyMMdd ["Date"] 
-                      (fn [date] (parse-yyyyMMdd date)))
+      ;; Parse the date and convert it to the date representing its month-end
+      (tc/map-columns :month-ending ["Date"]
+                      (fn [date] (->month-end date)))
       ;; Map: one route -> many datazones
-      (tc/map-columns :datazone-names ["Route"] 
-                      (fn [route] (->> route 
-                                       apply-text-substitutions 
+      (tc/map-columns :datazone-names ["Route"]
+                      (fn [route] (->> route
+                                       apply-text-substitutions
                                        parse-components
                                        (map ->datazone-names)
                                        flatten
                                        distinct
                                        vec)))
       ;; Map: datazone -> datazone population
-      (tc/map-columns :populations [:datazone-names] 
+      (tc/map-columns :populations [:datazone-names]
                       (fn [datazone-names] (->> datazone-names
                                                 (map ->population)
                                                 vec)))
       ;; Map: datazone populations of a route -> fractions per datazones of a route 
-      (tc/map-columns :fractions [:populations] 
+      (tc/map-columns :fractions [:populations]
                       (fn [populations] (let [total (apply + populations)]
                                           (->> populations
                                                (map #(/ % total))
                                                vec))))
       ;; Map: quantity, fractions per datazones of a route -> quantities per datazones of a route 
-      (tc/map-columns :quantities-per-datazones ["Quantity" :fractions] 
-                      (fn [quantity fractions] 
+      (tc/map-columns :quantities-per-datazones ["Quantity" :fractions]
+                      (fn [quantity fractions]
                         (->> fractions
                              (map #(* quantity %))
                              vec)))
-      ;; Unroll the collection holding columns, rename each to its singular form, and sort
+      ;; Unroll the collection holding columns, and rename each to its singular form
       (tc/unroll [:datazone-names :populations :fractions :quantities-per-datazones])
       (tc/rename-columns {:datazone-names           :datazone-name
                           :populations              :population
                           :fractions                :fraction-of-route-quantity
                           :quantities-per-datazones :quantity-for-datazone})
-      (tc/reorder-columns [:yyyyMMdd :datazone-name :quantity-for-datazone :fraction-of-route-quantity :population])
-      (tc/order-by [:yyyyMMdd :datazone])))
+      ;; Rollup to monthly quantities
+      (tc/group-by [:datazone-name :month-ending :population])
+      (tc/aggregate {:monthly-quantity-for-datazone #(reduce + (% :quantity-for-datazone))})
+      ;; And order columns and rows
+      (tc/reorder-columns [:month-ending :datazone-name :monthly-quantity-for-datazone :population])
+      (tc/order-by [:month-ending :datazone-name])))
 
 ;; ## 📉 Plot the bin collection quantities per person per DataZone 
 
 ;; Define a helper function that builds a plotline, from the data.
-(defn ->plotline [name point-data]
-  {:name          name
-   :x             (-> point-data :yyyyMMdd vec)
-   :y             (-> point-data :month-quantity-per-person vec)
-   :line          {:width 2}
+^{::clerk/viewer :hide-result}
+(defn ->plotline
+  [sub-ds]
+  (let [name (-> sub-ds tc/dataset-name (subs 7))]
+    {:name          name
+     :x             (-> sub-ds :month-ending vec)
+     :y             (-> sub-ds :monthly-per-person-quantity-for-datazone vec)
+     :line          {:width 2}
    ;:customdata    (->> extra
    ;                    :percentage 
    ;                    (map #(if (nil? %) "n/a" (format "%.1f%%" (double %)))) 
    ;                    vec)
-   :hovertemplate (str "<b>" name "</b> (%{x})<br>"
-                       "%{yaxis.title.text}: %{y}<br>"
-                       ;"portion of total: %{customdata}<extra></extra>"
-                       )})
+     :hovertemplate (str "<b>" name "</b> (%{x})<br>"
+                         "%{yaxis.title.text}: %{y:.3f}<br>"
+                       ;"portion of total: %{customdata}"
+                         "<extra></extra>")}))
 
-(defn point-data
- [datazone-name] 
-  (-> bin-collections-per-datazone
-      (tc/select-rows (fn [row] (= datazone-name (:datazone-name row))))
-      (tc/map-columns :yyyyMMdd [:yyyyMMdd] (fn [yyyyMMdd] (str (subs yyyyMMdd 0 8) "01"))) ;; -> yyyy-MM-01
-      (tc/group-by [:yyyyMMdd :population])
-      (tc/aggregate {:monthly-quantity #(reduce + (% :quantity-for-datazone))})  
-      (tc/map-columns :month-quantity-per-person [:monthly-quantity :population] (fn [monthly-quantity population] (/ monthly-quantity population)))
-      ))
-
-(def plot-lines
-  (vec 
-   (for [datazone-name (bin-collections-per-datazone :datazone-name)]
-     (->plotline datazone-name (point-data datazone-name)))))
-
+^{::clerk/viewer :hide-result}
+(defn ->plotlines
+     [ds]
+     (-> ds
+         (tc/map-columns :monthly-per-person-quantity-for-datazone [:monthly-quantity-for-datazone :population]
+                         (fn [monthly-quantity-for-datazone population]
+                           (/ monthly-quantity-for-datazone population)))
+         (tc/group-by :datazone-name)
+         (tc/groups->seq)
+         (->>
+          (map ->plotline)
+          vec)))
 
 ;; Display the graph.
 (v/plotly 
- {:data   plot-lines
+ {:data   (->plotlines bin-collections-per-datazone)
   :layout {:title  "Bin collection quantities across Stirling"
-           :height 800 ;:margin {:l 110 :b 40}
+           :height 900 :width 850 :margin {:l 100 :b 40}
            :xaxis  {:title    "month"
                     :type     "date"
-                    ;:showgrid false ;:dtick 1
+                    :showgrid true 
                     }
-           :yaxis  {:title "tonnes per person" ;:tickformat "," :rangemode "tozero"
+           :yaxis  {:title "tonnes per person" 
+                    :tickformat "," 
+                    :rangemode "tozero"
                     }
            }})
 
