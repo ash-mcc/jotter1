@@ -8,17 +8,16 @@
 ;;
 ;; DataZones are well defined geographic areas that are associated with (statistical) data,
 ;; such as population data. This makes them useful when comparing between 
-;; geographically anchored, per-population quantities 
-;; - like Stirling's bin collection quantities.
+;; geographically anchored, per-population quantities - like Stirling's bin collection quantities.
 ;;
 ;; We have used the term _approximately_ because mapping the bin collections data to DataZones 
 ;; is not simple and unamibiguous. 
 ;; For example, the data may say that a certain weight of binned material was collected in 
-;; "`Aberfoyle, Drymen, Balmaha, Croftamie, Balfron & Fintry narrow access areas`".
-;; This needs to be aportioned across several DataZones.
+;; "`Aberfoyle, Drymen, Balmaha, Croftamie, Balfron & Fintry narrow access areas`",
+;; and this needs to be aportioned across several DataZones.
 ;; In cases like this, we will aportion the weight across the DataZones, 
 ;; based on relative populations of those DataZones.
-;; Our hope is that the resulting approximate values will still be interesting and useful. 
+;; Will the resulting approximation be accurate enough to be useful?
 
 ;; ## Software libraries
 
@@ -27,36 +26,30 @@
   ::clerk/visibility :fold}
 (ns stirling-bin-collection-quantities-per-datazone
   (:require [clojure.string :as str]
+            [clojure.data.json :as json]
             [tablecloth.api :as tc]
             [tech.v3.dataset :as tds]
             [clj-http.client :as http]
+            [geo.io :as gio]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as v])
   (:import java.net.URLEncoder
            java.io.ByteArrayInputStream
            [com.univocity.parsers.csv CsvParser CsvParserSettings]))
 
-;; ## Read the bin collections data
+;; Specify how to display datasets.
+(clerk/set-viewers! [{:pred tc/dataset?
+                      :transform-fn #(clerk/table {:head (tds/column-names %)
+                                                   :rows (tds/rowvecs %)})}])
 
-;; Read the CSV file from Stirling council's Open Data website.
-^{::clerk/visibility :fold}
-(def bin-collections 
-  (tc/dataset "https://data.stirling.gov.uk/dataset/70614cbb-ff9e-4ef7-8e18-486017a368d6/resource/8807c713-46cb-4100-80c5-de8a457b0f8e/download/20220207-domestic-waste-collections-jan-2021-to-dec-2021.csv"))
+;; ## DataZones
 
-;; Count the rows and columns.
-^{::clerk/visibility :fold}
-(tc/shape bin-collections)
+;; ### Read the DataZones data
 
-;; Get a further description of the columns.
-^{::clerk/visibility :fold}
-(tc/info bin-collections)
-
-;; ## Read the map areas data
-
-;; Each map area will have a name, a geographic boundary and a population. 
+;; Each DataZone will have a name, a geographic boundary and a population. 
 
 ;; Define the SPARQL query to be used against the Scottish government SPARQL endpoint.
-^{::clerk/visibility :fold}
+^{::clerk/viewer :hide-result}
 (def sparql "
 PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -69,12 +62,12 @@ PREFIX ent-id: <http://statistics.gov.scot/id/statistical-entity/>
 PREFIX stat-geo: <http://statistics.data.gov.uk/def/statistical-geography#>
 PREFIX geo-id: <http://statistics.gov.scot/id/statistical-geography/>
 PREFIX geosparql: <http://www.opengis.net/ont/geosparql#>
-SELECT ?datazone ?population ?geometry 
+SELECT ?name ?population ?geometry 
 WHERE {
   ?dzUri stat-geo:status \"Live\";
          stat-geo:parentcode/rdfs:label \"Stirling\";
-         stat-ent:code/rdfs:label \"Intermediate Zones\"; # These provide the best fit for the bin collection data
-         rdfs:label ?datazone;
+         stat-ent:code/rdfs:label \"Intermediate Zones\"; # 'Intermediate' seems the most appropriate given the resolution of the bin collections data
+         rdfs:label ?name;
          geosparql:hasGeometry/geosparql:asWKT ?geometry.
   ?popUri qb:dataSet <http://statistics.gov.scot/data/population-estimates-current-geographic-boundaries>;
           pdmx:refArea ?dzUri;
@@ -86,7 +79,7 @@ WHERE {
 ")
 
 ;; Define how-to run a SPARQL query against the Scottish government SPARQL endpoint.
-^{::clerk/visibility :fold}
+^{::clerk/viewer :hide-result}
 (defn exec-against-scotgov [sparql]
   (:body (http/post "http://statistics.gov.scot/sparql"
                     {:body    (str "query=" (URLEncoder/encode sparql))
@@ -95,31 +88,112 @@ WHERE {
                      :debug   false})))
 
 ;; Run the SPARQL query and read the result.
-^{::clerk/visibility :fold}
-(def map-areas
+(def datazones
   (-> sparql
       exec-against-scotgov
       (.getBytes "UTF-8")
       (ByteArrayInputStream.)
       (tds/->dataset {:file-type :csv
-                      :csv-parser(CsvParser.
-                                     (doto (CsvParserSettings.)
+                      :csv-parser (CsvParser.
+                                   (doto (CsvParserSettings.)
                                        ;; up the max field length to allows for the large WKT geometry strings
-                                       (.setMaxCharsPerColumn (* 65536 8))))
-                      :key-fn    keyword})))
+                                     (.setMaxCharsPerColumn (* 65536 8))))
+                      :key-fn    keyword})
+      (tc/order-by :name)))
 
+;; ### Plot the DataZones on a map
 
-;; ## Link bin collections to map areas
+;; Import a stylesheet for the (Leaflet) map.
+(clerk/html
+ [:link {:rel         "stylesheet"
+         :href        "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+         :crossorigin "anonymous"}])
 
-^{::clerk/visibility :fold}
+;; Define a (Clerk) component for displaying a (Leaflet) map.
+^{::clerk/viewer :hide-result}
+(def leaflet
+  {:fetch-fn  (fn [_ x] x)
+   :render-fn '(fn [value]
+                 (v/html
+                  (when-let [{:keys [geojson lat lng zoom]} value]
+                    [v/with-d3-require {:package ["leaflet@1.7.1/dist/leaflet.js"]}
+                     (fn [leaflet]
+                       (letfn [(render-fn
+                                 []
+                                 [:div#leaflet-hook {:style {:height 400}}])
+                               (did-mount-fn
+                                 []
+                                 (let [leaflet-map   (.map leaflet "leaflet-hook")
+                                       basemap-layer (.tileLayer
+                                                      leaflet
+                                                      "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                      (clj->js {:attribution "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"}))
+                                       geojson-layer (.geoJson
+                                                      leaflet
+                                                      (clj->js geojson)
+                                                      (clj->js
+                                                       {:style         (fn [^js feature]
+                                                                         {:weight      1
+                                                                          :opacity     0.5
+                                                                          :color       "grey"
+                                                                          :fillOpacity 0.1})
+                                                        :onEachFeature (fn [^js feature layer]
+                                                                         (let [props-map (js->clj (.. feature -properties) :keywordize-keys true)]
+                                                                           (.bindTooltip layer (:name props-map))))}))]
+                                   (.addTo basemap-layer leaflet-map)
+                                   (.addTo geojson-layer leaflet-map)
+                                   (.setView leaflet-map (.latLng leaflet lat lng) zoom)))
+                               (did-update-fn
+                                 [_this _prev-props])
+                               (leaflet-component-fn
+                                 []
+                                 (reagent/create-class
+                                  {:reagent-render       render-fn
+                                   :component-did-mount  did-mount-fn
+                                   :component-did-update did-update-fn}))]
+                         [leaflet-component-fn]))])))})
+
+; Display a map of the DataZones.
+(clerk/with-viewer leaflet
+  {:lat     56.257  
+   :lng     -4.326 ;; approx. the centre of the Stirling council area (Ben Ledi)
+   :zoom    9
+   :geojson {:type     "FeatureCollection"
+             :features (for [datazone (tc/rows datazones :as-maps)]
+                         {:type       "Feature"
+                          :geometry   (-> datazone :geometry .toString gio/read-wkt gio/to-geojson json/read-str)
+                          :properties {:name (-> datazone :name)}})}})
+
+;; ## Bin collections
+
+;; ### Read the bin collections data
+
+;; Read the CSV file from Stirling council's Open Data website.
+(def bin-collections 
+  (-> (tc/dataset "https://data.stirling.gov.uk/dataset/70614cbb-ff9e-4ef7-8e18-486017a368d6/resource/8807c713-46cb-4100-80c5-de8a457b0f8e/download/20220207-domestic-waste-collections-jan-2021-to-dec-2021.csv")
+      (tc/reorder-columns ["Date" "Route" "Quantity"])
+      (tc/order-by ["Date" "Route"])))
+
+;; Count the rows and columns.
+(tc/shape bin-collections)
+
+;; Get a further description of the columns.
+(tc/info bin-collections)
+
+;; ## Map bin collection routes to DataZones
+
+;; ### Define the mapping
+
+;; Define a date parser.
+^{::clerk/viewer :hide-result}
 (defn parse-yyyyMMdd
   [^String date]
   (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date)]
     (str yyyy "-" MM "-" dd)))
 
-^{::clerk/visibility :fold}
+;; Define how to clean the syntax of and correct the spellings within a named (bin collection) route.
+^{::clerk/viewer :hide-result}
 (def text-substitutions 
-  ;; For a cleaner syntax and correct spellings.
   ;; NB no specific ordering.
   {"and "                   ","
    "&"                      ","
@@ -150,7 +224,8 @@ WHERE {
    "Balamaha"               "Balmaha"
    "Broombridge"            "Broomridge"})
 
-^{::clerk/visibility :fold}
+;; Define a function that will apply all of the syntax/spelling corrections to a named route.
+^{::clerk/viewer :hide-result}
 (defn apply-text-substitutions
   [^String route]
   (loop [todo        text-substitutions 
@@ -161,20 +236,23 @@ WHERE {
         (recur (rest todo)
                (str/replace accumulator match substitution))))))
 
-^{::clerk/visibility :fold}
+;; Define how to split a named route into components.
+^{::clerk/viewer :hide-result}
 (defn parse-components 
   [^String route]
   (->> (str/split route #",")
        (map str/trim)))
 
-^{::clerk/visibility :fold}
-(defn datazones-whose-names-wholely-contain
+;; Define a function that will return all DataZone names that (textually) wholely contain the route-component name.
+^{::clerk/viewer :hide-result}
+(defn datazone-names-wholely-containing
   [^String route-component]
-  (filter #(str/includes? % route-component) (:datazone map-areas)))
+  (filter #(str/includes? % route-component) (:name datazones)))
 
-^{::clerk/visibility :fold}
+;; Define a look-up table: route-component -> datazone.
+^{::clerk/viewer :hide-result}
 (def lookup-table
-  ;; route-component -> datazones
+  ;; route-component -> datazone
   {"Cultenhove"                         ["Borestone"]
    "Loch Katrine"                       ["Highland"]
    "Thornhill"                          ["Carse of Stirling"]
@@ -235,29 +313,29 @@ WHERE {
    "Dunblane North"                     ["Dunblane East"]
    "Blairhoyle"                         ["Carse of Stirling"]})
 
-^{::clerk/visibility :fold}
-(defn ->datazones
+;; Map one route-component to many datazones.
+^{::clerk/viewer :hide-result}
+(defn ->datazone-names
   [^String route-component]
-  (if-let [datazones (not-empty (datazones-whose-names-wholely-contain route-component))]
-    datazones
-    (if-let [datazones (not-empty (get lookup-table route-component))]
-      datazones
+  (if-let [datazone-names (not-empty (datazone-names-wholely-containing route-component))]
+    datazone-names
+    (if-let [datazone-names (not-empty (get lookup-table route-component))]
+      datazone-names
       [])))
 
-^{::clerk/visibility :fold}
+;; Return the population of the given datazone.
+^{::clerk/viewer :hide-result}
 (defn ->population
-  [datazone]
-  (-> map-areas
-      (tc/select-rows (fn [row] (= datazone (:datazone row))))
+  [datazone-name]
+  (-> datazones
+      (tc/select-rows (fn [row] (= datazone-name (:name row))))
       :population
       first))
 
-^{::clerk/visibility :fold}
-(defn ->fractions
-  [datazones]
-  (map ->population datazones))
+;; ### Apply the mapping
 
-(def bin-collections-v2
+;; Apply a pipleline data transformers to achieve the mapping.
+(def datazoned-bin-collections
   (-> bin-collections
       ;; Ignore internal transfers
       (tc/drop-rows (fn [row] 
@@ -270,7 +348,7 @@ WHERE {
                       (fn [route] (->> route 
                                        apply-text-substitutions 
                                        parse-components
-                                       (map ->datazones)
+                                       (map ->datazone-names)
                                        flatten
                                        distinct
                                        vec)))
@@ -291,14 +369,16 @@ WHERE {
                         (->> fractions
                              (map #(* quantity %))
                              vec)))
-      ;; Unroll the collection holding columns and rename each its singular form
+      ;; Unroll the collection holding columns, rename each to its singular form, and sort
       (tc/unroll [:datazones :populations :fractions :fractional-quantities])
       (tc/rename-columns {:datazones             :datazone
                           :populations           :population
                           :fractions             :fraction
-                          :fractional-quantities :fractional-quantity})))
+                          :fractional-quantities :fractional-quantity})
+      (tc/reorder-columns [:yyyyMMdd :datazone :fractional-quantity :fraction :population])
+      (tc/order-by [:yyyyMMdd :datazone])))
 
-;; ## Plot a placeholder graph
+;; ### Plot 
 
 ;; Define a helper function that builds a plotline, from the data.
 (defn ->plotline [name _colour point-data #_extra]
