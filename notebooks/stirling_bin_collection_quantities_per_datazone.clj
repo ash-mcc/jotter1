@@ -1,24 +1,31 @@
-;; # Stirling's bin collection data on a map
+;; # Stirling's bin collection quantities per DataZone
 
 ;; ## Introduction
  
-;; Stirling council has published Open Data about it _bin collection_.
+;; Stirling council has published Open Data about its _bin collections_.
 ;; Its data for 2021 includes town/area names.
-;; Our aim is to _approximately_ plot this data on a map.
+;; Our aim is to _approximately_ map this data onto DataZones.
 ;;
-;; We say _approximately_ because transfering the data to a map is not simple and unamibiguous. 
+;; DataZones are well defined geographic areas that are associated with (statistical) data,
+;; such as population data. This makes them useful when comparing between 
+;; geographically anchored, per-population quantities 
+;; - like Stirling's bin collection quantities.
+;;
+;; We have used the term _approximately_ because mapping the bin collections data to DataZones 
+;; is not simple and unamibiguous. 
 ;; For example, the data may say that a certain weight of binned material was collected in 
 ;; "`Aberfoyle, Drymen, Balmaha, Croftamie, Balfron & Fintry narrow access areas`".
-;; In a case like this, we will aportion the weight collected,
-;; between the individual areas, based on relative populations of those areas.
-;; But this is approximate.
+;; This needs to be aportioned across several DataZones.
+;; In cases like this, we will aportion the weight across the DataZones, 
+;; based on relative populations of those DataZones.
+;; Our hope is that the resulting approximate values will still be interesting and useful. 
 
 ;; ## Software libraries
 
 ;; Load the helper libraries.
 ^{:nextjournal.clerk/toc true
   ::clerk/visibility :fold}
-(ns stirling_bin_collection_data_on_a_map
+(ns stirling-bin-collection-quantities-per-datazone
   (:require [clojure.string :as str]
             [tablecloth.api :as tc]
             [tech.v3.dataset :as tds]

@@ -23,7 +23,7 @@
   (clerk/show! "notebooks/scotgov_datasets.clj")
   (clerk/show! "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj")
   (clerk/show! "notebooks/pasi_poc_flowchart.clj")
-  (clerk/show! "notebooks/stirling_bin_collection_data_on_a_map.clj")
+  (clerk/show! "notebooks/stirling_bin_collection_quantities_per_datazone.clj")
   (clerk/show! "notebooks/leaflet_example.clj")
   (clerk/show! "notebooks/investigate_onscreen_controls.clj")
   (clerk/show! "notebooks/church.clj")
