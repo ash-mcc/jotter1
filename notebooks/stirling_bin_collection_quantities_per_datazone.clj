@@ -404,9 +404,16 @@ WHERE {
       
       ;; Rollup to monthly quantities
       (tc/group-by [:month-ending :datazone-name :datazone-population])
-      (tc/aggregate {:datazone-person-month-quantity #(reduce + (% :datazone-person-quantity))})
+      (tc/aggregate {:datazone-person-month-quantity  (fn [sub-ds] 
+                                                        (reduce + (sub-ds :datazone-person-quantity)))
+                     :datazone-month-recycling-percent (fn [sub-ds] 
+                                                        (/ (reduce + (-> sub-ds 
+                                                                         (tc/select-rows (fn [row] 
+                                                                                           (str/includes? (get row "Category") "Recycling"))) 
+                                                                         :datazone-person-quantity))
+                                                           (reduce + (sub-ds :datazone-person-quantity))))})
       
-      ;; Rank datazone based on their per-person month average quantity
+      ;; Rank datazone based on their per-person month average quantity, also on their month average percentage recycled
       (tc/fold-by [:datazone-name])
       (tc/map-columns :datazone-person-month-quantity-avg [:datazone-person-month-quantity] 
                       (fn [datazone-person-month-quantity]
@@ -414,52 +421,67 @@ WHERE {
                            (count datazone-person-month-quantity))))
       (tc/order-by [:datazone-person-month-quantity-avg])
       (tc/add-column :datazone-person-month-quantity-avg-rank (rest (range)))
-      (tc/unroll [:month-ending :datazone-population :datazone-person-month-quantity])
+      (tc/map-columns :datazone-month-recycling-percent-avg [:datazone-month-recycling-percent]
+                      (fn [datazone-month-recycling-percent]
+                        (/ (apply + datazone-month-recycling-percent)
+                           (count datazone-month-recycling-percent))))
+      (tc/order-by [:datazone-month-recycling-percent-avg] :desc)
+      (tc/add-column :datazone-month-recycling-percent-avg-rank (rest (range)))
+      (tc/unroll [:month-ending :datazone-population :datazone-person-month-quantity :datazone-month-recycling-percent])
       
       ;; Order columns and rows
-      (tc/select-columns [:month-ending :datazone-name :datazone-population :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank])
-      (tc/reorder-columns [:month-ending :datazone-name :datazone-population :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank])
+      (tc/select-columns [:month-ending :datazone-name :datazone-population 
+                          :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank 
+                          :datazone-month-recycling-percent :datazone-month-recycling-percent-avg-rank])
+      (tc/reorder-columns [:month-ending :datazone-name :datazone-population 
+                           :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank 
+                           :datazone-month-recycling-percent :datazone-month-recycling-percent-avg-rank])
       (tc/order-by [:month-ending :datazone-name])))
 
 ;; ## 📉 Plot the bin collection quantities per DataZone 
 
-;; Code how to construct a plotline from the data about one DataZone.
+;; Code how to construct a specification for a plotline, 
+;; from the data about one DataZone.
+;; This will only show the plotlines of the best and worst two DataZones by rank.
+;; To see the other plotlines, click on their legend listings.
 ^{::clerk/viewer :hide-result}
-(defn ->plotline
-  [sub-ds-coll-count sub-ds]
-  (let [second-last-rank (- sub-ds-coll-count 1)
-        name (-> sub-ds tc/dataset-name (subs 7))
-        rank (-> sub-ds :datazone-person-month-quantity-avg-rank first)]
+(defn plotline-spec
+  [{:keys [rank-kw y-kw template-fragment] :as _focus-based-params} last-rank sub-ds]
+  (let [second-last-rank (- last-rank 1)
+        name             (-> sub-ds tc/dataset-name (subs 7))
+        rank             (-> sub-ds rank-kw first)]
     {:name          name
      :x             (-> sub-ds :month-ending vec)
-     :y             (-> sub-ds :datazone-person-month-quantity vec)
+     :y             (-> sub-ds y-kw vec)
      :line          {:width 2}
      :visible       (cond
                       (<= rank 2) true
                       (>= rank second-last-rank) true
                       :else "legendonly")
      :hovertemplate (str "<b>" name "</b> (avg. rank " rank ")<br>"
-                         "%{y:.3f} tonnes per-person for %{x|%b'%y}<br>"
+                         template-fragment " for %{x|%b'%y}<br>"
                          "<extra></extra>")}))
 
-;; Code how to construct plotlines from the data.
+;; Code how to construct construct a specification for a list of plotlines, 
+;; from the data about a list of DataZones.
 ^{::clerk/viewer :hide-result}
-(defn ->plotlines
-     [ds]
-     (let [sub-ds-coll (-> ds
-                           (tc/group-by :datazone-name)
-                           (tc/groups->seq))
-           ->plotline' (partial ->plotline (count sub-ds-coll))]
-       (->> sub-ds-coll
-            (map ->plotline')
-            vec)))
+(defn plotlines-spec
+  [focus-based-params ds]
+  (let [sub-ds-coll       (-> ds
+                              (tc/group-by :datazone-name)
+                              (tc/groups->seq))
+        last-rank (count sub-ds-coll)
+        plotline-spec' (partial plotline-spec focus-based-params last-rank)]
+    (->> sub-ds-coll
+         (map plotline-spec')
+         vec)))
 
-;; Display the graph.
-;; Only show the plotlines of the best and worst two DataZones for per-person quantities.
-;; To see other plotlines, click on their legend listings.
-^{::clerk/width :full}
+;; ### Plot the monthly per-person quantities
 (v/plotly 
- {:data   (->plotlines bin-collections-per-datazone)
+ {:data   (plotlines-spec {:rank-kw :datazone-person-month-quantity-avg-rank
+                           :y-kw :datazone-person-month-quantity
+                           :template-fragment "%{y:.3f} tonnes per-person"} 
+                          bin-collections-per-datazone)
   :layout {:title  "Bin collection quantities across Stirling"
            :height 700
            :margin {:l 75
@@ -473,6 +495,27 @@ WHERE {
                     :dtick      "M1"}
            :yaxis  {:title      "Tonnes per person" 
                     :tickformat ".2f" 
+                    :rangemode  "tozero"}}})
+
+;; ### Plot the monthly recycling percentages
+(v/plotly
+ {:data   (plotlines-spec {:rank-kw :datazone-month-recycling-percent-avg-rank
+                           :y-kw :datazone-month-recycling-percent
+                           :template-fragment "%{y:.3f}% recycling"}
+                          bin-collections-per-datazone)
+  :layout {:title  "Bin collection recycling percentages across Stirling"
+           :height 700
+           :margin {:l 75
+                    :b 80}
+           :xaxis  {:title      "Month"
+                    :type       "date"
+                    :showgrid   false
+                    :tickformat "%b'%y"
+                    :tickangle  45
+                    :tick0      (-> bin-collections-per-datazone :month-ending sort first)
+                    :dtick      "M1"}
+           :yaxis  {:title      "Recycling percentage"
+                    :tickformat ".2f"
                     :rangemode  "tozero"}}})
 
 
