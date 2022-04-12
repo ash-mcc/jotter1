@@ -181,8 +181,12 @@ WHERE {
 ;; Count the rows and columns.
 (tc/shape bin-collections)
 
-;; Get a further description of the columns.
-(tc/info bin-collections)
+^{::clerk/visibility :hide
+  ::clerk/viewer :hide-result}
+(comment
+  ;; Get a further description of the columns.
+  (tc/info bin-collections)
+  )
 
 ;; ## 🗂️ Map bin collection routes to DataZones
 
@@ -339,17 +343,20 @@ WHERE {
       :population
       first))
 
-;; ### Compute the bin collection quantities per DataZone
+;; ### Calculate the bin collection quantities per DataZone
 
 ;; Apply our pipeline of data transformers/mappings to compute the quantities per DataZone.
 (def bin-collections-per-datazone
   (-> bin-collections
+      
       ;; Ignore internal transfers
       (tc/drop-rows (fn [row]
                       (= "Internal Stirling Council Transfer" (get row "Route"))))
+      
       ;; Parse the date and convert it to the date representing its month-end
       (tc/map-columns :month-ending ["Date"]
                       (fn [date] (->month-end date)))
+      
       ;; Map: one route -> many datazones
       (tc/map-columns :datazone-names ["Route"]
                       (fn [route] (->> route
@@ -359,95 +366,141 @@ WHERE {
                                        flatten
                                        distinct
                                        vec)))
+      
       ;; Map: datazone -> datazone population
-      (tc/map-columns :populations [:datazone-names]
+      (tc/map-columns :datazone-populations [:datazone-names]
                       (fn [datazone-names] (->> datazone-names
                                                 (map ->population)
                                                 vec)))
+      
       ;; Map: datazone populations of a route -> fractions per datazones of a route 
-      (tc/map-columns :fractions [:populations]
+      (tc/map-columns :fractions [:datazone-populations]
                       (fn [populations] (let [total (apply + populations)]
                                           (->> populations
                                                (map #(/ % total))
                                                vec))))
+      
       ;; Map: quantity, fractions per datazones of a route -> quantities per datazones of a route 
-      (tc/map-columns :quantities-per-datazones ["Quantity" :fractions]
+      (tc/map-columns :datazone-quantities ["Quantity" :fractions]
                       (fn [quantity fractions]
                         (->> fractions
                              (map #(* quantity %))
                              vec)))
+      
       ;; Unroll the collection holding columns, and rename each to its singular form
-      (tc/unroll [:datazone-names :populations :fractions :quantities-per-datazones])
-      (tc/rename-columns {:datazone-names           :datazone-name
-                          :populations              :population
-                          :fractions                :fraction-of-route-quantity
-                          :quantities-per-datazones :quantity-for-datazone})
+      (tc/unroll [:datazone-names :datazone-populations :datazone-quantities])
+      (tc/rename-columns {:datazone-names       :datazone-name
+                          :datazone-populations :datazone-population
+                          :datazone-quantities  :datazone-quantity})
+      
+      ;; Calculate per-person quantities
+      (tc/map-columns :datazone-person-quantity [:datazone-quantity :datazone-population]
+                      (fn [datazone-quantity datazone-population]
+                        (/ datazone-quantity datazone-population)))
+      
       ;; Rollup to monthly quantities
-      (tc/group-by [:datazone-name :month-ending :population])
-      (tc/aggregate {:monthly-quantity-for-datazone #(reduce + (% :quantity-for-datazone))})
-      ;; And order columns and rows
-      (tc/reorder-columns [:month-ending :datazone-name :monthly-quantity-for-datazone :population])
+      (tc/group-by [:month-ending :datazone-name :datazone-population])
+      (tc/aggregate {:datazone-person-month-quantity #(reduce + (% :datazone-person-quantity))})
+      
+      ;; Rank datazone based on their per-person month average quantity
+      (tc/fold-by [:datazone-name])
+      (tc/map-columns :datazone-person-month-quantity-avg [:datazone-person-month-quantity] 
+                      (fn [datazone-person-month-quantity]
+                        (/ (apply + datazone-person-month-quantity) 
+                           (count datazone-person-month-quantity))))
+      (tc/order-by [:datazone-person-month-quantity-avg])
+      (tc/add-column :datazone-person-month-quantity-avg-rank (rest (range)))
+      (tc/unroll [:month-ending :datazone-population :datazone-person-month-quantity])
+      
+      ;; Order columns and rows
+      (tc/select-columns [:month-ending :datazone-name :datazone-population :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank])
+      (tc/reorder-columns [:month-ending :datazone-name :datazone-population :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank])
       (tc/order-by [:month-ending :datazone-name])))
 
-;; ## 📉 Plot the bin collection quantities per person per DataZone 
+;; ## 📉 Plot the bin collection quantities (per person) per DataZone 
 
-;; Define a helper function that builds a plotline, from the data.
+;; Code how to construct a plotline from the data about one DataZone.
 ^{::clerk/viewer :hide-result}
 (defn ->plotline
-  [sub-ds]
-  (let [name (-> sub-ds tc/dataset-name (subs 7))]
+  [sub-ds-coll-count sub-ds]
+  (let [second-last-rank (- sub-ds-coll-count 1)
+        name (-> sub-ds tc/dataset-name (subs 7))
+        rank (-> sub-ds :datazone-person-month-quantity-avg-rank first)]
     {:name          name
      :x             (-> sub-ds :month-ending vec)
-     :y             (-> sub-ds :monthly-per-person-quantity-for-datazone vec)
+     :y             (-> sub-ds :datazone-person-month-quantity vec)
      :line          {:width 2}
-   ;:customdata    (->> extra
-   ;                    :percentage 
-   ;                    (map #(if (nil? %) "n/a" (format "%.1f%%" (double %)))) 
-   ;                    vec)
-     :hovertemplate (str "<b>" name "</b> (%{x})<br>"
-                         "%{yaxis.title.text}: %{y:.3f}<br>"
-                       ;"portion of total: %{customdata}"
+     :visible       (cond
+                      (<= rank 2) true
+                      (>= rank second-last-rank) true
+                      :else "legendonly")
+     :hovertemplate (str "<b>" name "</b><br>"
+                         "%{y:.3f} tonnes per-person for %{x|%b'%y}<br>"
+                         "Average rank: " rank "<br>"
                          "<extra></extra>")}))
 
+;; Code how to construct plotlines from the data.
 ^{::clerk/viewer :hide-result}
 (defn ->plotlines
      [ds]
-     (-> ds
-         (tc/map-columns :monthly-per-person-quantity-for-datazone [:monthly-quantity-for-datazone :population]
-                         (fn [monthly-quantity-for-datazone population]
-                           (/ monthly-quantity-for-datazone population)))
-         (tc/group-by :datazone-name)
-         (tc/groups->seq)
-         (->>
-          (map ->plotline)
-          vec)))
+     (let [sub-ds-coll (-> ds
+                           (tc/group-by :datazone-name)
+                           (tc/groups->seq))
+           ->plotline' (partial ->plotline (count sub-ds-coll))]
+       (->> sub-ds-coll
+            (map ->plotline')
+            vec)))
 
 ;; Display the graph.
+;; Only show the plotlines of the best and worst two DataZones for per-person quantities.
+;; To see other plotlines, click on their legend listings.
+^{::clerk/width :full}
 (v/plotly 
  {:data   (->plotlines bin-collections-per-datazone)
   :layout {:title  "Bin collection quantities across Stirling"
-           :height 900 :width 850 :margin {:l 100 :b 40}
-           :xaxis  {:title    "month"
-                    :type     "date"
-                    :showgrid true 
-                    }
-           :yaxis  {:title "tonnes per person" 
-                    :tickformat "," 
-                    :rangemode "tozero"
-                    }
-           }})
+           :height 900
+           :margin {:l 75
+                    :b 80}
+           :xaxis  {:title      "Month"
+                    :type       "date"
+                    :showgrid   false 
+                    :tickformat "%b'%y"
+                    :tickangle  45
+                    :tick0      (-> bin-collections-per-datazone :month-ending sort first)
+                    :dtick      "M1"}
+           :yaxis  {:title      "Tonnes per person" 
+                    :tickformat ".2f" 
+                    :rangemode  "tozero"}}})
 
 
 ;; ## 🤔 Conclusions
 
 
-
-
+^{::clerk/visibility :hide
+  ::clerk/viewer :hide-result}
 (comment
 
-  (-> (tc/dataset [{:a "y" :b 3 :c 1} {:b 5 :a "x" :c 2} {:a "x" :b 1 :c 2}])
-      (tc/group-by [:a :c])
-      (tc/aggregate #(reduce + (% :b))))
+  (-> (tc/dataset [{:name          "bob"
+                    :month         "Feb"
+                    :monthly-quant 4} 
+                   {:name          "bob"
+                    :month         "Mar"
+                    :monthly-quant 2}
+                   {:name          "sue"
+                    :month         "Feb"
+                    :monthly-quant 1}
+                   {:name          "sue"
+                    :month         "Mar"
+                    :monthly-quant 3}])
+      (tc/fold-by [:name])
+      (tc/map-columns :month-avg [:monthly-quant] (fn [monthly-quant]
+                                                    (/ (apply + monthly-quant) (count monthly-quant))))
+      (tc/order-by [:month-avg])
+      (tc/add-column :month-avg-pos (range))
+      (tc/unroll [:month :monthly-quant])
+      )
+  
+
 
 
   (def body
