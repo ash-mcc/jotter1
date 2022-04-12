@@ -143,7 +143,10 @@ WHERE {
                                                                           :fillOpacity 0.1})
                                                         :onEachFeature (fn [^js feature layer]
                                                                          (let [props-map (js->clj (.. feature -properties) :keywordize-keys true)]
-                                                                           (.bindTooltip layer (:name props-map))))}))]
+                                                                           (.bindTooltip layer (str "<div style='text-align: center'>" 
+                                                                                                    "<h6>" (:name props-map) "</h6>"
+                                                                                                    "pop. " (:population props-map)
+                                                                                                    "</div>"))))}))]
                                    (.addTo basemap-layer leaflet-map)
                                    (.addTo geojson-layer leaflet-map)
                                    (.setView leaflet-map (.latLng leaflet lat lng) zoom)))
@@ -166,7 +169,8 @@ WHERE {
              :features (for [datazone (tc/rows datazones :as-maps)]
                          {:type       "Feature"
                           :geometry   (-> datazone :geometry .toString gio/read-wkt gio/to-geojson json/read-str)
-                          :properties {:name (-> datazone :name)}})}})
+                          :properties {:name       (-> datazone :name)
+                                       :population (-> datazone :population)}})}})
 
 ;; ## 🚮 Bin collections
 
@@ -317,7 +321,7 @@ WHERE {
    "Ashfield"                           ["Dunblane East"]
    "Chartershall"                       ["Borestone"]
    "Arnprior"                           ["Kippen and Fintry"]
-   "Whins of Milton"                    ["Borestone"]
+   "Whins of Milton"                    ["Hillpark"]
    "Riverside"                          ["Forth"]
    "Cambuskenneth"                      ["Forth"]
    "Sherrifmuir"                        ["Dunblane East"]
@@ -417,7 +421,7 @@ WHERE {
       (tc/reorder-columns [:month-ending :datazone-name :datazone-population :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank])
       (tc/order-by [:month-ending :datazone-name])))
 
-;; ## 📉 Plot the bin collection quantities (per person) per DataZone 
+;; ## 📉 Plot the bin collection quantities per DataZone 
 
 ;; Code how to construct a plotline from the data about one DataZone.
 ^{::clerk/viewer :hide-result}
@@ -434,9 +438,8 @@ WHERE {
                       (<= rank 2) true
                       (>= rank second-last-rank) true
                       :else "legendonly")
-     :hovertemplate (str "<b>" name "</b><br>"
+     :hovertemplate (str "<b>" name "</b> (avg. rank " rank ")<br>"
                          "%{y:.3f} tonnes per-person for %{x|%b'%y}<br>"
-                         "Average rank: " rank "<br>"
                          "<extra></extra>")}))
 
 ;; Code how to construct plotlines from the data.
@@ -458,7 +461,7 @@ WHERE {
 (v/plotly 
  {:data   (->plotlines bin-collections-per-datazone)
   :layout {:title  "Bin collection quantities across Stirling"
-           :height 900
+           :height 700
            :margin {:l 75
                     :b 80}
            :xaxis  {:title      "Month"
