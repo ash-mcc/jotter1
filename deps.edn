@@ -38,4 +38,5 @@
                          :paths       ["index.md"
                                        "notebooks/scotgov_datasets.clj"
                                        "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"
-                                       "notebooks/pasi_poc_flowchart.clj"]}}}}
+                                       "notebooks/pasi_poc_flowchart.clj"
+                                       "notebooks/stirling_bin_collection_quantities_per_datazone.clj"]}}}}

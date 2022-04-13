@@ -18,21 +18,29 @@
            [com.univocity.parsers.csv CsvParser CsvParserSettings]))
 
 ^{::clerk/visibility :hide}
-(let [;; Use a photograph by Lojze Jerala, of bins being emptied into a lorry in Ljubljana, Slovenia, 1959.
-      ;; Licence: Public domain
-      url (URL. "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg")
+;; Use a photograph by Lojze Jerala, of bins being emptied into a lorry in Ljubljana, Slovenia, 1959.
+;; Licence: Public domain
+(let [url (URL. "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg")
       img (with-open [in (io/input-stream url)] (ImageIO/read in))]
   (.getSubimage img 0 633 4985 2492))
+
+^{::clerk/visibility :hide
+  ::clerk/viewer :hide-result}
+;; Specify how to display datasets
+(clerk/set-viewers! [{:pred         tc/dataset?
+                      :transform-fn #(clerk/table {:head (tds/column-names %)
+                                                   :rows (tds/rowvecs %)})}])
 
 ;; # Stirling's bin collection quantities per DataZone
 
 ;; ## 👋 Introduction
  
 ;; Stirling council has published Open Data about its _bin collections_.
-;; Its data for 2021 includes town/area names.
+;; Its [data for 2021](https://data.stirling.gov.uk/dataset/waste-services-2021-onwards) includes town/area names.
 ;; Our aim is to _approximately_ map this data onto DataZones.
 ;;
-;; DataZones are well defined geographic areas that are associated with (statistical) data,
+;; [DataZones](https://www.gov.scot/binaries/content/documents/govscot/publications/statistics/2020/01/small-area-statistics-reference-materials/documents/data-zone-matching---quick-guide-2001-2011/data-zone-matching---quick-guide-2001-2011/govscot%3Adocument/Data%2BZone%2BMatching%2B-%2BQuick%2BGuide%2B%25282001-2011%2529.pdf)
+;; are well defined geographic areas that are associated with (statistical) data,
 ;; such as population data. This makes them useful when comparing between 
 ;; geographically anchored, per-person quantities - like Stirling's bin collection quantities.
 ;;
@@ -44,12 +52,6 @@
 ;; In cases like this, we will aportion the weight across the DataZones, 
 ;; based on relative populations of those DataZones.
 ;; Will the resulting approximation be accurate enough to be useful?
-
-;; Specify how to display datasets.
-^{::clerk/viewer :hide-result}
-(clerk/set-viewers! [{:pred         tc/dataset?
-                      :transform-fn #(clerk/table {:head (tds/column-names %)
-                                                   :rows (tds/rowvecs %)})}])
 
 ;; ## 📍 DataZones
 
@@ -559,19 +561,33 @@ WHERE {
 
 ;; ## 🤔 Conclusions
 ;;
-;; * approximate
+
+;; The charts suggest that there are substantial differences between some DataZones, for example:
+;; * the `per-person quantities` chart indicates that there is roughly a ×3 difference between the
+;; best (`Broomridge`) and worst (`Kippen and Fintry`) DataZones, 
+;; * and the `recycling percentages` chart indicates that there is roughly a ×2 difference between the 
+;; best (`City Centre`) and worst (`Bridge of Allan and University`) DataZones.
+;;
+;; Are these differences _real_? Well, they are too significant to have arisen due to a few bad data points or mappings.
+;; Ok then, could the differences be due to systematic differences in the method used to categorise 
+;; and measure bin collection quantities, between DataZones? That's unlikely since many of the DataZones 
+;; at both ends of the ranking share the same processing/measurement facility.  
+;;
+;; Most of the DataZones exhibit a _step change_ in both charts around `Aug'21`-`Nov'21`.
+;; This coincides with Stirling council's 
+;; [change to a four-weekly bin collection](https://stirling.gov.uk/news/2021/july-2021/council-announces-recycle-4-stirling-campaign/) 
+;; for grey (general waste) and blue (plastics, cartons and cans) bins.
+;; 
+;;
 ;; * have I got all the route -> DataZone mappings correct ?
-;; * e a difference between most and least quantities per-person montly quantities, and recycling percentages
 ;; * be better if Stir council used DZs directly
 ;; * what's a apparrent...
-;; * step change around
 ;; * more data please
 
 
 ^{::clerk/visibility :hide
   ::clerk/viewer :hide-result}
 (comment
-
   ;; Check quantity total from the downstream dataset (much processed) 
   ;; against the quantity total from the upstream dataset (closer to the source, more raw).
   (println "upstream total =   " 
@@ -590,8 +606,6 @@ WHERE {
                :total
                first))
 
-
   ;; Super useful for seeing a WDT geometry on a map  
-  ;; http://arthur-e.github.io/Wicket/
-           
-           )
+  ;; http://arthur-e.github.io/Wicket/       
+  )

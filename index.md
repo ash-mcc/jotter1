@@ -25,13 +25,18 @@ Walk-throughs, notes and other jottings on various topics.
       [{:title "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Datasets from statistics.gov.scot which might be useful to the_od_bods project"
         :preview "img/preview-scotgov-datasets.png"
         :path "notebooks/scotgov_datasets.clj"
-        :description "We generate a CSV file that describes the 311 datasets (15 organisations) that are available via Scot gov’s SPARQL endpoint. "}
+        :description "We generate a CSV file that describes the 311 datasets (15 organisations) that are available via Scot gov’s SPARQL endpoint."}
        {:title "The label-first 🏷️ querying of WikiData for Scottish government agencies"
         :preview "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Mundaneum_Tiräng_Karteikaarten.jpg/440px-Mundaneum_Tiräng_Karteikaarten.jpg"
         :path "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"
-        :description "We construct a label-first query that is equivalent to CTC24's more typical QID-first Wikidata SPARQL query, for Scottish government agencies"}
-        {:title "A flowchart of PASI's proof-of-concept implementation"
+        :description "We construct a label-first query that is equivalent to CTC24's more typical QID-first Wikidata SPARQL query, for Scottish government agencies."}
+       {:title "A flowchart of PASI's proof-of-concept implementation"
         :preview "img/pasi-poc-flowchart.png"
         :path "notebooks/pasi_poc_flowchart.clj"
         :description "A somewhat ideal view of the flow of waste reduction related data 
-        through the PASI (Participatory Accounting for Social Impact) system"}])))
+        through the PASI (Participatory Accounting for Social Impact) system."}
+       {:title "Stirling's bin collection quantities per DataZone"
+        :preview "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg"
+        :path "notebooks/stirling_bin_collection_quantities_per_datazone.clj"
+        :description "We tranfer Stirling's bin collection data onto DataZones (map areas with known statistics)
+        to extract insights."}])))
