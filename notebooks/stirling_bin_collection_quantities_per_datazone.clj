@@ -1,3 +1,29 @@
+^{:nextjournal.clerk/toc true
+  ::clerk/visibility :hide
+  ::clerk/viewer :hide-result}
+(ns stirling-bin-collection-quantities-per-datazone
+  (:require [clojure.string :as str]
+            [clojure.java.io :as io]
+            [clojure.data.json :as json]
+            [tablecloth.api :as tc]
+            [tech.v3.dataset :as tds]
+            [clj-http.client :as http]
+            [geo.io :as gio]
+            [nextjournal.clerk :as clerk]
+            [nextjournal.clerk.viewer :as v])
+  (:import [java.net URL URLEncoder]
+           java.io.ByteArrayInputStream
+           java.time.LocalDate
+           javax.imageio.ImageIO
+           [com.univocity.parsers.csv CsvParser CsvParserSettings]))
+
+^{::clerk/visibility :hide}
+(let [;; Use a photograph by Lojze Jerala, of bins being emptied into a lorry in Ljubljana, Slovenia, 1959.
+      ;; Licence: Public domain
+      url (URL. "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg")
+      img (with-open [in (io/input-stream url)] (ImageIO/read in))]
+  (.getSubimage img 0 633 4985 2492))
+
 ;; # Stirling's bin collection quantities per DataZone
 
 ;; ## 👋 Introduction
@@ -19,26 +45,6 @@
 ;; based on relative populations of those DataZones.
 ;; Will the resulting approximation be accurate enough to be useful?
 
-;; ### Software set-up
-
-;; Load the helper libraries.
-^{:nextjournal.clerk/toc true
-  ::clerk/visibility :fold
-  ::clerk/viewer :hide-result}
-(ns stirling-bin-collection-quantities-per-datazone
-  (:require [clojure.string :as str]
-            [clojure.data.json :as json]
-            [tablecloth.api :as tc]
-            [tech.v3.dataset :as tds]
-            [clj-http.client :as http]
-            [geo.io :as gio]
-            [nextjournal.clerk :as clerk]
-            [nextjournal.clerk.viewer :as v])
-  (:import java.net.URLEncoder
-           java.io.ByteArrayInputStream
-           java.time.LocalDate
-           [com.univocity.parsers.csv CsvParser CsvParserSettings]))
-
 ;; Specify how to display datasets.
 ^{::clerk/viewer :hide-result}
 (clerk/set-viewers! [{:pred         tc/dataset?
@@ -53,7 +59,8 @@
 
 ;; Construct the SPARQL query to be used against the Scottish government SPARQL endpoint,
 ;; to fetch the DataZone data.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (def sparql "
 PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -83,7 +90,8 @@ WHERE {
 ")
 
 ;; Code how to run a SPARQL query against the Scottish government SPARQL endpoint.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn exec-against-scotgov [sparql]
   (:body (http/post "http://statistics.gov.scot/sparql"
                     {:body    (str "query=" (URLEncoder/encode sparql))
@@ -92,6 +100,7 @@ WHERE {
                      :debug   false})))
 
 ;; Run the SPARQL query and read the result.
+^{::clerk/visibility :fold}
 (def datazones
   (-> sparql
       exec-against-scotgov
@@ -108,13 +117,15 @@ WHERE {
 ;; ### Plot the DataZones on a map
 
 ;; Import a stylesheet for the (Leaflet) map.
+^{::clerk/visibility :fold}
 (clerk/html
  [:link {:rel         "stylesheet"
          :href        "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
          :crossorigin "anonymous"}])
 
 ;; Code a (Clerk) component for displaying a (Leaflet) map.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (def leaflet
   {:fetch-fn  (fn [_ x] x)
    :render-fn '(fn [value]
@@ -124,7 +135,7 @@ WHERE {
                      (fn [leaflet]
                        (letfn [(render-fn
                                  []
-                                 [:div#leaflet-hook {:style {:height 400}}])
+                                 [:div#leaflet-hook {:style {:height 500}}])
                                (did-mount-fn
                                  []
                                  (let [leaflet-map   (.map leaflet "leaflet-hook")
@@ -161,6 +172,7 @@ WHERE {
                          [leaflet-component-fn]))])))})
 
 ; Display a map of the DataZones.
+^{::clerk/visibility :fold}
 (clerk/with-viewer leaflet
   {:lat     56.257  
    :lng     -4.326 ;; approx. the centre of the Stirling council area (Ben Ledi)
@@ -177,12 +189,14 @@ WHERE {
 ;; ### Read the bin collections data
 
 ;; Read the CSV file from Stirling council's Open Data website.
+^{::clerk/visibility :fold}
 (def bin-collections 
   (-> (tc/dataset "https://data.stirling.gov.uk/dataset/70614cbb-ff9e-4ef7-8e18-486017a368d6/resource/8807c713-46cb-4100-80c5-de8a457b0f8e/download/20220207-domestic-waste-collections-jan-2021-to-dec-2021.csv")
       (tc/reorder-columns ["Date" "Route" "Quantity"])
       (tc/order-by ["Date" "Route"])))
 
 ;; Count the rows and columns.
+^{::clerk/visibility :fold}
 (tc/shape bin-collections)
 
 ^{::clerk/visibility :hide
@@ -197,7 +211,8 @@ WHERE {
 ;; ### Define the routes to DataZones mappings
 
 ;; Code how to parse a date from text, then convert it to its month-end date.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn ->month-end
   [^String date-text]
   (let [[_ dd MM yyyy] (re-find #"(\d{2})/(\d{2})/(\d{4})" date-text)
@@ -207,7 +222,8 @@ WHERE {
 
 ;; Specify textual substitutions for cleaning the syntax 
 ;; and correcting the spelling of the name of a bin collection route.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (def text-substitutions 
   ;; NB no specific ordering.
   {"and "                   ","
@@ -240,7 +256,8 @@ WHERE {
    "Broombridge"            "Broomridge"})
 
 ;; Code how to apply all of the syntax/spell correcting substitutions to a route name.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn apply-text-substitutions
   [^String route]
   (loop [todo        text-substitutions 
@@ -252,20 +269,23 @@ WHERE {
                (str/replace accumulator match substitution))))))
 
 ;; Code how to split a route name into component-route names.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn parse-components 
   [^String route]
   (->> (str/split route #",")
        (map str/trim)))
 
 ;; Code how to find all DataZone names that (textually) wholely contain the route-component name.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn dz-names-wholely-containing
   [^String route-component]
   (filter #(str/includes? % route-component) (:name datazones)))
 
 ;; Define a look-up table of route-component name -> datazone name.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (def lookup-table
   ;; route-component -> datazone
   {"Cultenhove"                         ["Borestone"]
@@ -329,11 +349,13 @@ WHERE {
    "Blairhoyle"                         ["Carse of Stirling"]})
 
 ;; Keep a note of the route-components that don't get matched with datazones.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (def route-components-not-matched-with-datazones (atom #{}))
 
 ;; Code how to map one route-component to many datazones.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn ->dz-names
   [^String route-component]
   (if-let [dz-names (not-empty (dz-names-wholely-containing route-component))]
@@ -345,7 +367,8 @@ WHERE {
         []))))
 
 ;; Code how to find the population of a named datazone.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn ->population
   [dz-name]
   (-> datazones
@@ -356,12 +379,9 @@ WHERE {
 ;; ### Calculate the bin collection quantities per DataZone
 
 ;; Apply our pipeline of data transformers/mappings to compute the quantities per DataZone.
+^{::clerk/visibility :fold}
 (def bin-collections-per-datazone
   (-> bin-collections
-      
-      ;; Ignore internal transfers
-      (tc/drop-rows (fn [row]
-                      (= "Internal Stirling Council Transfer" (row "Route"))))
       
       ;; Parse the date and convert it to the date representing its month-end
       (tc/map-columns :month-ending ["Date"]
@@ -444,13 +464,24 @@ WHERE {
                            :dz-month-recycling-percent :dz-month-recycling-percent-avg-rank])
       (tc/order-by [:month-ending :dz-name])))
 
+;; Look at the route-components which weren't mapped to DataZones.
+;;
+;; At the time of writing, these were:
+;; * `Internal Stirling Council Transfer` - ignorable since it isn't applicable for our purpose.
+;; * `Not applicable` - which suggests that it is ignorable for our purpose!
+;; * `All routes` and `Rural glass bring sites` - ignored since there is little value in _spreading_ these across a lot of DataZones.
+;; * `Kilm` - ignored because I can't find this town/area; perhaps it's a spelling mistake.
+^{::clerk/visibility :fold}
+@route-components-not-matched-with-datazones
+
 ;; ## 📉 Plot the bin collection quantities per DataZone 
 
 ;; Code how to construct the specification for a plotline, 
 ;; from a dataset about one DataZone.
 ;; This will only show the plotlines of the best and worst two DataZones by rank.
 ;; To see the other plotlines, click on their legend listings.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn plotline-spec
   [{:keys [rank-kw y-kw template-fragment] :as _config} last-rank sub-ds]
   (let [second-last-rank (- last-rank 1)
@@ -470,7 +501,8 @@ WHERE {
 
 ;; Code how to construct the specification for a list of plotlines, 
 ;; from a dataset about a list of DataZones.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn plotlines-spec
   [config ds]
   (let [sub-ds-coll    (-> ds
@@ -484,7 +516,8 @@ WHERE {
 
 ;; Code how to construct the specification for a chart, 
 ;; from a dataset about a list of DataZones.
-^{::clerk/viewer :hide-result}
+^{::clerk/visibility :fold
+  ::clerk/viewer :hide-result}
 (defn chart-spec
   [{:keys [chart-title y-axis-title] :as config} ds]
   {:data   (plotlines-spec config ds)
@@ -504,6 +537,7 @@ WHERE {
                      :rangemode  "tozero"}}})
 
 ;; ### Plot the monthly per-person quantities
+^{::clerk/visibility :fold}
 (v/plotly 
  (chart-spec {:chart-tile        "Bin collection quantities across Stirling"
               :y-axis-title      "Tonnes per person"
@@ -513,6 +547,7 @@ WHERE {
              bin-collections-per-datazone))
 
 ;; ### Plot the monthly recycling percentages
+^{::clerk/visibility :fold}
 (v/plotly
  (chart-spec {:chart-tile        "Bin collection recycling percentages across Stirling"
               :y-axis-title      "Recycling percentage"
@@ -523,20 +558,24 @@ WHERE {
 
 
 ;; ## 🤔 Conclusions
+;;
+;; * approximate
+;; * have I got all the route -> DataZone mappings correct ?
+;; * e a difference between most and least quantities per-person montly quantities, and recycling percentages
+;; * be better if Stir council used DZs directly
+;; * what's a apparrent...
+;; * step change around
+;; * more data please
 
 
 ^{::clerk/visibility :hide
   ::clerk/viewer :hide-result}
 (comment
-  
-  ;; Take a look at the route-components which haven't been mapped to a DataZone
-  @route-components-not-matched-with-datazones
 
   ;; Check quantity total from the downstream dataset (much processed) 
   ;; against the quantity total from the upstream dataset (closer to the source, more raw).
   (println "upstream total =   " 
            (-> bin-collections
-               (tc/drop-rows (fn [row] (= "Internal Stirling Council Transfer" (row "Route"))))
                ;; the next drop-rows is good enough - although imperfect since it assumes that the route-component is actually the whole of the route 
                (tc/drop-rows (fn [row] (contains? @route-components-not-matched-with-datazones (row "Route")))) 
                (tc/aggregate {:total (fn [row] (reduce + (row "Quantity")))})
