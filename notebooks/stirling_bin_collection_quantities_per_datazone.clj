@@ -440,13 +440,13 @@ WHERE {
 
 ;; ## 📉 Plot the bin collection quantities per DataZone 
 
-;; Code how to construct a specification for a plotline, 
-;; from the data about one DataZone.
+;; Code how to construct the specification for a plotline, 
+;; from a dataset about one DataZone.
 ;; This will only show the plotlines of the best and worst two DataZones by rank.
 ;; To see the other plotlines, click on their legend listings.
 ^{::clerk/viewer :hide-result}
 (defn plotline-spec
-  [{:keys [rank-kw y-kw template-fragment] :as _focus-based-params} last-rank sub-ds]
+  [{:keys [rank-kw y-kw template-fragment] :as _config} last-rank sub-ds]
   (let [second-last-rank (- last-rank 1)
         name             (-> sub-ds tc/dataset-name (subs 7))
         rank             (-> sub-ds rank-kw first)]
@@ -462,61 +462,58 @@ WHERE {
                          template-fragment " for %{x|%b'%y}<br>"
                          "<extra></extra>")}))
 
-;; Code how to construct construct a specification for a list of plotlines, 
-;; from the data about a list of DataZones.
+;; Code how to construct the specification for a list of plotlines, 
+;; from a dataset about a list of DataZones.
 ^{::clerk/viewer :hide-result}
 (defn plotlines-spec
-  [focus-based-params ds]
-  (let [sub-ds-coll       (-> ds
-                              (tc/group-by :datazone-name)
-                              (tc/groups->seq))
-        last-rank (count sub-ds-coll)
-        plotline-spec' (partial plotline-spec focus-based-params last-rank)]
+  [config ds]
+  (let [sub-ds-coll    (-> ds
+                           (tc/group-by :datazone-name)
+                           (tc/groups->seq))
+        last-rank      (count sub-ds-coll)
+        plotline-spec' (partial plotline-spec config last-rank)]
     (->> sub-ds-coll
          (map plotline-spec')
          vec)))
 
+;; Code how to construct the specification for a chart, 
+;; from a dataset about a list of DataZones.
+^{::clerk/viewer :hide-result}
+(defn chart-spec
+  [{:keys [chart-title y-axis-title] :as config} ds]
+  {:data   (plotlines-spec config ds)
+   :layout {:title  chart-title
+            :height 700
+            :margin {:l 75
+                     :b 80}
+            :xaxis  {:title      "Month"
+                     :type       "date"
+                     :showgrid   false
+                     :tickformat "%b'%y"
+                     :tickangle  45
+                     :tick0      (-> ds :month-ending sort first)
+                     :dtick      "M1"}
+            :yaxis  {:title      y-axis-title
+                     :tickformat ".2f"
+                     :rangemode  "tozero"}}})
+
 ;; ### Plot the monthly per-person quantities
 (v/plotly 
- {:data   (plotlines-spec {:rank-kw :datazone-person-month-quantity-avg-rank
-                           :y-kw :datazone-person-month-quantity
-                           :template-fragment "%{y:.3f} tonnes per-person"} 
-                          bin-collections-per-datazone)
-  :layout {:title  "Bin collection quantities across Stirling"
-           :height 700
-           :margin {:l 75
-                    :b 80}
-           :xaxis  {:title      "Month"
-                    :type       "date"
-                    :showgrid   false 
-                    :tickformat "%b'%y"
-                    :tickangle  45
-                    :tick0      (-> bin-collections-per-datazone :month-ending sort first)
-                    :dtick      "M1"}
-           :yaxis  {:title      "Tonnes per person" 
-                    :tickformat ".2f" 
-                    :rangemode  "tozero"}}})
+ (chart-spec {:chart-tile        "Bin collection quantities across Stirling"
+              :y-axis-title      "Tonnes per person"
+              :rank-kw           :datazone-person-month-quantity-avg-rank
+              :y-kw              :datazone-person-month-quantity
+              :template-fragment "%{y:.3f} tonnes per-person"} 
+             bin-collections-per-datazone))
 
 ;; ### Plot the monthly recycling percentages
 (v/plotly
- {:data   (plotlines-spec {:rank-kw :datazone-month-recycling-percent-avg-rank
-                           :y-kw :datazone-month-recycling-percent
-                           :template-fragment "%{y:.3f}% recycling"}
-                          bin-collections-per-datazone)
-  :layout {:title  "Bin collection recycling percentages across Stirling"
-           :height 700
-           :margin {:l 75
-                    :b 80}
-           :xaxis  {:title      "Month"
-                    :type       "date"
-                    :showgrid   false
-                    :tickformat "%b'%y"
-                    :tickangle  45
-                    :tick0      (-> bin-collections-per-datazone :month-ending sort first)
-                    :dtick      "M1"}
-           :yaxis  {:title      "Recycling percentage"
-                    :tickformat ".2f"
-                    :rangemode  "tozero"}}})
+ (chart-spec {:chart-tile        "Bin collection recycling percentages across Stirling"
+              :y-axis-title      "Recycling percentage"
+              :rank-kw           :datazone-month-recycling-percent-avg-rank
+              :y-kw              :datazone-month-recycling-percent
+              :template-fragment "%{y:.3f}% recycling"} 
+             bin-collections-per-datazone))
 
 
 ;; ## 🤔 Conclusions
