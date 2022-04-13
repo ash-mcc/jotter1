@@ -41,7 +41,7 @@
 
 ;; Specify how to display datasets.
 ^{::clerk/viewer :hide-result}
-(clerk/set-viewers! [{:pred tc/dataset?
+(clerk/set-viewers! [{:pred         tc/dataset?
                       :transform-fn #(clerk/table {:head (tds/column-names %)
                                                    :rows (tds/rowvecs %)})}])
 
@@ -97,12 +97,12 @@ WHERE {
       exec-against-scotgov
       (.getBytes "UTF-8")
       (ByteArrayInputStream.)
-      (tds/->dataset {:file-type :csv
+      (tds/->dataset {:file-type  :csv
                       :csv-parser (CsvParser.
                                    (doto (CsvParserSettings.)
-                                       ;; up the max field length to allows for the large WKT geometry strings
+                                     ;; up the max field length to allows for the large WKT geometry strings
                                      (.setMaxCharsPerColumn (* 65536 8))))
-                      :key-fn    keyword})
+                      :key-fn     keyword})
       (tc/order-by :name)))
 
 ;; ### Plot the DataZones on a map
@@ -260,7 +260,7 @@ WHERE {
 
 ;; Code how to find all DataZone names that (textually) wholely contain the route-component name.
 ^{::clerk/viewer :hide-result}
-(defn datazone-names-wholely-containing
+(defn dz-names-wholely-containing
   [^String route-component]
   (filter #(str/includes? % route-component) (:name datazones)))
 
@@ -328,22 +328,28 @@ WHERE {
    "Dunblane North"                     ["Dunblane East"]
    "Blairhoyle"                         ["Carse of Stirling"]})
 
+;; Keep a note of the route-components that don't get matched with datazones.
+^{::clerk/viewer :hide-result}
+(def route-components-not-matched-with-datazones (atom #{}))
+
 ;; Code how to map one route-component to many datazones.
 ^{::clerk/viewer :hide-result}
-(defn ->datazone-names
+(defn ->dz-names
   [^String route-component]
-  (if-let [datazone-names (not-empty (datazone-names-wholely-containing route-component))]
-    datazone-names
-    (if-let [datazone-names (not-empty (get lookup-table route-component))]
-      datazone-names
-      [])))
+  (if-let [dz-names (not-empty (dz-names-wholely-containing route-component))]
+    dz-names
+    (if-let [dz-names (not-empty (get lookup-table route-component))]
+      dz-names
+      (do
+        (swap! route-components-not-matched-with-datazones conj route-component)
+        []))))
 
 ;; Code how to find the population of a named datazone.
 ^{::clerk/viewer :hide-result}
 (defn ->population
-  [datazone-name]
+  [dz-name]
   (-> datazones
-      (tc/select-rows (fn [row] (= datazone-name (:name row))))
+      (tc/select-rows (fn [row] (= dz-name (:name row))))
       :population
       first))
 
@@ -355,88 +361,88 @@ WHERE {
       
       ;; Ignore internal transfers
       (tc/drop-rows (fn [row]
-                      (= "Internal Stirling Council Transfer" (get row "Route"))))
+                      (= "Internal Stirling Council Transfer" (row "Route"))))
       
       ;; Parse the date and convert it to the date representing its month-end
       (tc/map-columns :month-ending ["Date"]
                       (fn [date] (->month-end date)))
       
       ;; Map: one route -> many datazones
-      (tc/map-columns :datazone-names ["Route"]
+      (tc/map-columns :dz-names ["Route"]
                       (fn [route] (->> route
                                        apply-text-substitutions
                                        parse-components
-                                       (map ->datazone-names)
+                                       (map ->dz-names)
                                        flatten
                                        distinct
                                        vec)))
       
       ;; Map: datazone -> datazone population
-      (tc/map-columns :datazone-populations [:datazone-names]
-                      (fn [datazone-names] (->> datazone-names
-                                                (map ->population)
-                                                vec)))
+      (tc/map-columns :dz-populations [:dz-names]
+                      (fn [dz-names] (->> dz-names
+                                          (map ->population)
+                                          vec)))
       
       ;; Map: datazone populations of a route -> fractions per datazones of a route 
-      (tc/map-columns :fractions [:datazone-populations]
+      (tc/map-columns :fractions [:dz-populations]
                       (fn [populations] (let [total (apply + populations)]
                                           (->> populations
                                                (map #(/ % total))
                                                vec))))
       
       ;; Map: quantity, fractions per datazones of a route -> quantities per datazones of a route 
-      (tc/map-columns :datazone-quantities ["Quantity" :fractions]
+      (tc/map-columns :dz-quantities ["Quantity" :fractions]
                       (fn [quantity fractions]
                         (->> fractions
                              (map #(* quantity %))
                              vec)))
       
       ;; Unroll the collection holding columns, and rename each to its singular form
-      (tc/unroll [:datazone-names :datazone-populations :datazone-quantities])
-      (tc/rename-columns {:datazone-names       :datazone-name
-                          :datazone-populations :datazone-population
-                          :datazone-quantities  :datazone-quantity})
+      (tc/unroll [:dz-names :dz-populations :dz-quantities])
+      (tc/rename-columns {:dz-names       :dz-name
+                          :dz-populations :dz-population
+                          :dz-quantities  :dz-quantity})
       
       ;; Calculate per-person quantities
-      (tc/map-columns :datazone-person-quantity [:datazone-quantity :datazone-population]
-                      (fn [datazone-quantity datazone-population]
-                        (/ datazone-quantity datazone-population)))
+      (tc/map-columns :dz-person-quantity [:dz-quantity :dz-population]
+                      (fn [dz-quantity dz-population]
+                        (/ dz-quantity dz-population)))
       
       ;; Rollup to monthly quantities
-      (tc/group-by [:month-ending :datazone-name :datazone-population])
-      (tc/aggregate {:datazone-person-month-quantity  (fn [sub-ds] 
-                                                        (reduce + (sub-ds :datazone-person-quantity)))
-                     :datazone-month-recycling-percent (fn [sub-ds] 
-                                                        (/ (reduce + (-> sub-ds 
-                                                                         (tc/select-rows (fn [row] 
-                                                                                           (str/includes? (get row "Category") "Recycling"))) 
-                                                                         :datazone-person-quantity))
-                                                           (reduce + (sub-ds :datazone-person-quantity))))})
+      (tc/group-by [:month-ending :dz-name :dz-population])
+      (tc/aggregate {:dz-person-month-quantity   (fn [sub-ds] 
+                                                   (reduce + (sub-ds :dz-person-quantity)))
+                     :dz-month-recycling-percent (fn [sub-ds] 
+                                                   (/ (reduce + (-> sub-ds 
+                                                                    (tc/select-rows (fn [row] 
+                                                                                      (str/includes? (row "Category") "Recycling"))) 
+                                                                    :dz-person-quantity))
+                                                      (reduce + (sub-ds :dz-person-quantity))))})
       
       ;; Rank datazone based on their per-person month average quantity, also on their month average percentage recycled
-      (tc/fold-by [:datazone-name])
-      (tc/map-columns :datazone-person-month-quantity-avg [:datazone-person-month-quantity] 
-                      (fn [datazone-person-month-quantity]
-                        (/ (apply + datazone-person-month-quantity) 
-                           (count datazone-person-month-quantity))))
-      (tc/order-by [:datazone-person-month-quantity-avg])
-      (tc/add-column :datazone-person-month-quantity-avg-rank (rest (range)))
-      (tc/map-columns :datazone-month-recycling-percent-avg [:datazone-month-recycling-percent]
-                      (fn [datazone-month-recycling-percent]
-                        (/ (apply + datazone-month-recycling-percent)
-                           (count datazone-month-recycling-percent))))
-      (tc/order-by [:datazone-month-recycling-percent-avg] :desc)
-      (tc/add-column :datazone-month-recycling-percent-avg-rank (rest (range)))
-      (tc/unroll [:month-ending :datazone-population :datazone-person-month-quantity :datazone-month-recycling-percent])
+      (tc/fold-by [:dz-name])
+      (tc/map-columns :dz-person-month-quantity-avg [:dz-person-month-quantity] 
+                      (fn [dz-person-month-quantity]
+                        (/ (apply + dz-person-month-quantity) 
+                           (count dz-person-month-quantity))))
+      (tc/order-by [:dz-person-month-quantity-avg])
+      (tc/add-column :dz-person-month-quantity-avg-rank (rest (range)))
+      (tc/map-columns :dz-month-recycling-percent-avg [:dz-month-recycling-percent]
+                      (fn [dz-month-recycling-percent]
+                        (/ (apply + dz-month-recycling-percent)
+                           (count dz-month-recycling-percent))))
+      (tc/order-by [:dz-month-recycling-percent-avg] :desc)
+      (tc/add-column :dz-month-recycling-percent-avg-rank (rest (range)))
+      (tc/unroll [:month-ending :dz-population :dz-person-month-quantity :dz-month-recycling-percent])
       
       ;; Order columns and rows
-      (tc/select-columns [:month-ending :datazone-name :datazone-population 
-                          :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank 
-                          :datazone-month-recycling-percent :datazone-month-recycling-percent-avg-rank])
-      (tc/reorder-columns [:month-ending :datazone-name :datazone-population 
-                           :datazone-person-month-quantity :datazone-person-month-quantity-avg-rank 
-                           :datazone-month-recycling-percent :datazone-month-recycling-percent-avg-rank])
-      (tc/order-by [:month-ending :datazone-name])))
+      (tc/select-columns [:month-ending :dz-name :dz-population 
+                          :dz-person-month-quantity :dz-person-month-quantity-avg-rank 
+                          :dz-month-recycling-percent :dz-month-recycling-percent-avg-rank])
+      (tc/reorder-columns [:month-ending :dz-name :dz-population 
+                           :dz-person-month-quantity :dz-person-month-quantity-avg-rank 
+                           :dz-month-recycling-percent :dz-month-recycling-percent-avg-rank])
+      (tc/order-by [:month-ending :dz-name])))
 
 ;; ## 📉 Plot the bin collection quantities per DataZone 
 
@@ -468,7 +474,7 @@ WHERE {
 (defn plotlines-spec
   [config ds]
   (let [sub-ds-coll    (-> ds
-                           (tc/group-by :datazone-name)
+                           (tc/group-by :dz-name)
                            (tc/groups->seq))
         last-rank      (count sub-ds-coll)
         plotline-spec' (partial plotline-spec config last-rank)]
@@ -501,8 +507,8 @@ WHERE {
 (v/plotly 
  (chart-spec {:chart-tile        "Bin collection quantities across Stirling"
               :y-axis-title      "Tonnes per person"
-              :rank-kw           :datazone-person-month-quantity-avg-rank
-              :y-kw              :datazone-person-month-quantity
+              :rank-kw           :dz-person-month-quantity-avg-rank
+              :y-kw              :dz-person-month-quantity
               :template-fragment "%{y:.3f} tonnes per-person"} 
              bin-collections-per-datazone))
 
@@ -510,8 +516,8 @@ WHERE {
 (v/plotly
  (chart-spec {:chart-tile        "Bin collection recycling percentages across Stirling"
               :y-axis-title      "Recycling percentage"
-              :rank-kw           :datazone-month-recycling-percent-avg-rank
-              :y-kw              :datazone-month-recycling-percent
+              :rank-kw           :dz-month-recycling-percent-avg-rank
+              :y-kw              :dz-month-recycling-percent
               :template-fragment "%{y:.3f}% recycling"} 
              bin-collections-per-datazone))
 
@@ -522,59 +528,31 @@ WHERE {
 ^{::clerk/visibility :hide
   ::clerk/viewer :hide-result}
 (comment
-
-  (-> (tc/dataset [{:name          "bob"
-                    :month         "Feb"
-                    :monthly-quant 4} 
-                   {:name          "bob"
-                    :month         "Mar"
-                    :monthly-quant 2}
-                   {:name          "sue"
-                    :month         "Feb"
-                    :monthly-quant 1}
-                   {:name          "sue"
-                    :month         "Mar"
-                    :monthly-quant 3}])
-      (tc/fold-by [:name])
-      (tc/map-columns :month-avg [:monthly-quant] (fn [monthly-quant]
-                                                    (/ (apply + monthly-quant) (count monthly-quant))))
-      (tc/order-by [:month-avg])
-      (tc/add-column :month-avg-pos (range))
-      (tc/unroll [:month :monthly-quant])
-      )
   
+  ;; Take a look at the route-components which haven't been mapped to a DataZone
+  @route-components-not-matched-with-datazones
 
+  ;; Check quantity total from the downstream dataset (much processed) 
+  ;; against the quantity total from the upstream dataset (closer to the source, more raw).
+  (println "upstream total =   " 
+           (-> bin-collections
+               (tc/drop-rows (fn [row] (= "Internal Stirling Council Transfer" (row "Route"))))
+               ;; the next drop-rows is good enough - although imperfect since it assumes that the route-component is actually the whole of the route 
+               (tc/drop-rows (fn [row] (contains? @route-components-not-matched-with-datazones (row "Route")))) 
+               (tc/aggregate {:total (fn [row] (reduce + (row "Quantity")))})
+               :total
+               first))
+  (println "downstream total = " 
+           (-> bin-collections-per-datazone
+               (tc/map-columns :dz-month-quantity [:dz-person-month-quantity :dz-population] 
+                               (fn [dz-person-month-quantity dz-population] 
+                                 (* dz-person-month-quantity dz-population)))
+               (tc/aggregate {:total (fn [row] (reduce + (row :dz-month-quantity)))})
+               :total
+               first))
 
-
-  (def body
-    (-> sparql
-        exec-against-scotgov))
-
-  body
-
-  (def x (-> body
-             (.getBytes "UTF-8")
-             (ByteArrayInputStream.)))
-
-  x
-
-
-
-  (def csv-parser
-    (CsvParser. 
-     (doto (CsvParserSettings.)
-                  (.setMaxCharsPerColumn (* 65536 8)))))
-
-  (def y  (tds/->dataset x {:file-type :csv
-                            :csv-parser parser
-                            :key-fn    keyword}))
-
-  (tc/shape y)
-  (-> y :geometry first)
 
   ;; Super useful for seeing a WDT geometry on a map  
   ;; http://arthur-e.github.io/Wicket/
-
-  map-areas-test
-
-  )
+           
+           )
