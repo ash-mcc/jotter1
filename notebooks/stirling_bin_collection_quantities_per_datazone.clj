@@ -37,7 +37,7 @@
  
 ;; Stirling council has published Open Data about its _bin collections_.
 ;; Its [data for 2021](https://data.stirling.gov.uk/dataset/waste-services-2021-onwards) includes town/area names.
-;; Our aim is to _approximately_ map this data onto DataZones.
+;; Our aim is to _approximately_ map this data onto DataZones to extract insights.
 ;;
 ;; [DataZones](https://www.gov.scot/binaries/content/documents/govscot/publications/statistics/2020/01/small-area-statistics-reference-materials/documents/data-zone-matching---quick-guide-2001-2011/data-zone-matching---quick-guide-2001-2011/govscot%3Adocument/Data%2BZone%2BMatching%2B-%2BQuick%2BGuide%2B%25282001-2011%2529.pdf)
 ;; are well defined geographic areas that are associated with (statistical) data,
@@ -573,16 +573,19 @@ WHERE {
 ;; and measure bin collection quantities, between DataZones? That's unlikely since many of the DataZones 
 ;; at both ends of the ranking share the same processing/measurement facility.  
 ;;
-;; Most of the DataZones exhibit a _step change_ in both charts around `Aug'21`-`Nov'21`.
-;; This coincides with Stirling council's 
-;; [change to a four-weekly bin collection](https://stirling.gov.uk/news/2021/july-2021/council-announces-recycle-4-stirling-campaign/) 
-;; for grey (general waste) and blue (plastics, cartons and cans) bins.
+;; Most of the DataZones exhibit a _step change_ in both charts around `Aug'21`-`Nov'21`
+;; where (the majority of) the monthly quantities collected decrease and the recycling percentages increase.
+;; This coincides with Stirling council's change to a four-weekly bin collection 
+;; for grey bins (general waste) and blue bins (plastics, cartons & cans),
+;; and its [Recycle 4 Stirling](https://stirling.gov.uk/news/2021/july-2021/council-announces-recycle-4-stirling-campaign/)
+;; campaign. It's understandable that that specific change to bin collections increased recycling percentages,
+;; but it doesn't explain the decrease in monthly quantities.
+;; Perhaps there was also a change in the method of measurement/accounting, or that households took more of their waste
+;; to landfill sites themselves, or was it (at least partly) caused by the change in season?
 ;; 
-;;
-;; * have I got all the route -> DataZone mappings correct ?
-;; * be better if Stir council used DZs directly
-;; * what's a apparrent...
-;; * more data please
+;; It is good that Stirling council have begun to publish this data as Open Data into the public domain.
+;; It will open future, data-backed possibilities as it grows in volume and (hopefully) increases in fidelity.
+;; So, Stirling council, please keep on publishing the data (but map it to DataZones!).
 
 
 ^{::clerk/visibility :hide
