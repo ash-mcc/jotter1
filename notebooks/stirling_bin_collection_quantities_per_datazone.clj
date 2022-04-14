@@ -12,6 +12,7 @@
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as v])
   (:import [java.net URL URLEncoder]
+           [java.awt Color Font]
            java.io.ByteArrayInputStream
            java.time.LocalDate
            javax.imageio.ImageIO
@@ -20,9 +21,14 @@
 ^{::clerk/visibility :hide}
 ;; Use a photograph by Lojze Jerala, of bins being emptied into a lorry in Ljubljana, Slovenia, 1959.
 ;; Licence: Public domain
-(let [url (URL. "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg")
-      img (with-open [in (io/input-stream url)] (ImageIO/read in))]
-  (.getSubimage img 0 633 4985 2492))
+(let [url         (URL. "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg")
+      img         (with-open [in (io/input-stream url)] (ImageIO/read in))
+      img-cropped (.getSubimage img 0 633 4985 2492)
+      graphics    (.createGraphics img-cropped)]
+  (.setColor graphics Color/WHITE)
+  (.setFont graphics (Font. "SansSerif" Font/BOLD 48))
+  (.drawString graphics "Photograph by Lojze Jerala, 1959", 4100, 50)
+  img-cropped)
 
 ^{::clerk/visibility :hide
   ::clerk/viewer :hide-result}
@@ -581,11 +587,11 @@ WHERE {
 ;; campaign. It's understandable that that specific change to bin collections increased recycling percentages,
 ;; but it doesn't explain the decrease in monthly quantities.
 ;; Perhaps there was also a change in the method of measurement/accounting, or that households took more of their waste
-;; to landfill sites themselves, or was it (at least partly) caused by the change in season?
+;; to landfill sites themselves(!), or was it (at least partly) caused by the change in season?
 ;; 
 ;; It is good that Stirling council have begun to publish this data as Open Data into the public domain.
 ;; It will open future, data-backed possibilities as it grows in volume and (hopefully) increases in fidelity.
-;; So, Stirling council, please keep on publishing the data (but map it to DataZones!).
+;; So, Stirling council, please keep on publishing the data (but make it more DataZone-friendly!).
 
 
 ^{::clerk/visibility :hide
