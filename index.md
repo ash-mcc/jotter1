@@ -39,4 +39,9 @@ Walk-throughs, notes and other jottings on various topics.
         :preview "https://upload.wikimedia.org/wikipedia/commons/d/d2/Ljubljanski_smetarji_1959.jpg"
         :path "notebooks/stirling_bin_collection_quantities_per_datazone.clj"
         :description "We tranfer Stirling's bin collection data onto DataZones (map areas with known statistics)
-        to extract insights."}])))
+        to extract insights."}
+       {:title "Building a useful alternative search over Open Data Scotland's indexes"
+        :preview "https://upload.wikimedia.org/wikipedia/commons/3/3a/Copyright_Card_Catalog_Drawer.jpg"
+        :path "notebooks/opendatascot_search.clj"
+        :description "We try to easily build a useful alternative to the JKAN search, 
+        to better support exploratory searches?"}])))

@@ -24,13 +24,14 @@
   (clerk/show! "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj")
   (clerk/show! "notebooks/pasi_poc_flowchart.clj")
   (clerk/show! "notebooks/stirling_bin_collection_quantities_per_datazone.clj")
+  (clerk/show! "notebooks/opendatascot_search.clj")
   (clerk/show! "notebooks/leaflet_example.clj")
-  (clerk/show! "notebooks/investigate_onscreen_controls.clj")
   (clerk/show! "notebooks/church.clj")
 
   (clerk/show! "index.md")
 
   (clerk/clear-cache!)
+
 
   ;; Clerk elides lists after the 20th element; show and tweak the eliding parameter :n
   (-> @v/!viewers :root (get 10) :fetch-opts :n)

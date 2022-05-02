@@ -1,4 +1,4 @@
-{:paths   ["dev"]
+{:paths   ["dev" "notebooks"]
  :deps    {
            ;; Martin's commit (on 30th Mar 2022) which supports TOC Redux & Dark Mode Toggle
            io.github.nextjournal/clerk       {:git/sha "361a671489b6f6b7d28cc9089d5e04605e0d03be"}
@@ -39,4 +39,5 @@
                                        "notebooks/scotgov_datasets.clj"
                                        "notebooks/wikidata_label_first_querying_for_scotgov_agencies.clj"
                                        "notebooks/pasi_poc_flowchart.clj"
-                                       "notebooks/stirling_bin_collection_quantities_per_datazone.clj"]}}}}
+                                       "notebooks/stirling_bin_collection_quantities_per_datazone.clj"
+                                       "notebooks/opendatascot_search.clj"]}}}}
