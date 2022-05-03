@@ -43,5 +43,5 @@ Walk-throughs, notes and other jottings on various topics.
        {:title "Building a useful alternative search over Open Data Scotland's indexes"
         :preview "https://upload.wikimedia.org/wikipedia/commons/3/3a/Copyright_Card_Catalog_Drawer.jpg"
         :path "notebooks/opendatascot_search.clj"
-        :description "We try to easily build a useful alternative to the JKAN search, 
-        to better support exploratory searches?"}])))
+        :description "We try to build a simply but useful alternative to the JKAN search, 
+        to better support exploratory searching."}])))

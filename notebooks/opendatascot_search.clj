@@ -4,6 +4,7 @@
 (ns opendatascot-search
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
+            [clojure.pprint :as pp]
             [nextjournal.clerk :as clerk])
   (:import java.net.URL
            javax.imageio.ImageIO
@@ -42,9 +43,9 @@
 ;; We might think of entering the search words: `waste` `management` `recycl` `bin` `landfill` `dump` `tip`.
 ;; With JKAN, we would fairly much have to search for each of those words individually then collate the results.
 ;;
-;; Search tuning is its own field of research/area of business but, 
-;; we will try to _easily_ build a useful alternative to the JKAN search, 
-;; to better support exploratory searches...
+;; Search tuning is its own whole field of research/area of business but, 
+;; we will try build a simple alternative to the JKAN search, 
+;; to better support exploratory searching...
 
 ;; ## 🗂️ Create searchable, in-memory index cards from the index files 
 
@@ -211,11 +212,18 @@
                                   :class         "px-3 py-3 placeholder-blueGray-300 text-blueGray-500 relative bg-white bg-white rounded text-sm border border-blueGray-300 outline-none focus:outline-none focus:ring w-full"
                                   :on-input      #(v/clerk-eval `(reset! ~var-name ~(.. % -target -value)))}]))})
 
+;; * If you're viewing the _static_ web page version of this 
+;; then (below) you'll see a snapshot that was the result of
+;; typing the search words `waste` `management` `recycl` `bin` `landfill` `dump` `tip`
+;; into the search box. The search won't actually work in the _static_ web page version
+;; but you can try [this working demo](https://data-commons-scotland.github.io/opendatascot-search). 
+;; * If you're viewing the interactive Clerk programming notebook of this 
+;; then (below) you'll be able to type into the search box below and see new results.
 (clerk/html
- [:div.mt-8
+ [:div
   [:span.text-lg.text-indigo-700.font-bold "Type words (of three or more letters)"]])
 ^{:nextjournal.clerk/viewer text-input}
-(defonce text-state (atom ""))
+(defonce text-state (atom "waste management recycl bin landfill dump tip"))
 
 ^::clerk/no-cache
 (clerk/html
@@ -238,8 +246,7 @@
         (let [s (str/trim (:notes index-card))]
           (when (not (str/blank? s))
             [:<> [:span.text-gray-600 s] [:br]]))
-        ":metric " (:metric index-card) " :metric2 " (:metric2 index-card) [:br]
-        [:spam.text-gray-400.text-sm "Matching: "]
+        [:span.text-gray-400.text-sm "Matching: "]
         (-> (for [[search-word matches] (:search-words->matches index-card)]
               (when-let [match (first matches)]
                 (let [ix1 (str/index-of match search-word)
@@ -249,3 +256,16 @@
                    [:span.font-extrabold.text-indigo-700 search-word]
                    (subs match ix2)])))
             (interleave (repeat " ")))])]]))
+
+^{::clerk/visibility :hide
+  ::clerk/viewer :hide-result}
+(comment
+  
+  ;; Output the index-cards for use in a demo app
+  (->> index-cards
+       pp/pprint
+       with-out-str
+       (spit "data.clj"))
+
+
+)
