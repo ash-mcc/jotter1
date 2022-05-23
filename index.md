@@ -4,9 +4,9 @@
   (:require [nextjournal.clerk :as clerk]))
 ```
 
-# Ash's jotter #&#8203;1 🗒️
+# Ash's jotter #&#8203;1 🗒️ - Extracting information from Open Data
 
-Walk-throughs, notes and other jottings on various topics.
+Walk-throughs, notes and other jottings about extracting information from Open Data.
 
 ```clojure
 (clerk/html
