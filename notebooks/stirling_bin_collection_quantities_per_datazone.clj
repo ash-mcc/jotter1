@@ -149,7 +149,7 @@ WHERE {
                                  (let [leaflet-map   (.map leaflet "leaflet-hook")
                                        basemap-layer (.tileLayer
                                                       leaflet
-                                                      "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                                       (clj->js {:attribution "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"}))
                                        geojson-layer (.geoJson
                                                       leaflet
